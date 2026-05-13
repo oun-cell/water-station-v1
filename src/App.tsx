@@ -239,7 +239,6 @@ function App() {
       <main className="main-panel">
         <header className="topbar compact-topbar">
           <div>
-            <p>السعر: {PRICE_PER_METER} JOD / متر</p>
             <h1>{navItems.find((item) => item.view === view)?.label}</h1>
           </div>
         </header>

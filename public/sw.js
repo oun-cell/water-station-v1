@@ -1,4 +1,4 @@
-const CACHE_NAME = "water-station-v1-hide-nav-keyboard-v7";
+const CACHE_NAME = "water-station-v1-no-top-price-v8";
 const APP_SHELL = ["./", "./manifest.webmanifest", "./generated/app-concept.png"];
 
 self.addEventListener("install", (event) => {
