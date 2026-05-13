@@ -1232,6 +1232,237 @@ tr.deleted {
   }
 }
 
+@media (max-width: 1180px), (pointer: coarse) {
+  .app-shell {
+    grid-template-columns: minmax(170px, 18vw) 1fr;
+  }
+
+  .sidebar {
+    padding: 10px;
+  }
+
+  .brand {
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .brand-mark,
+  .icon-pill {
+    width: 38px;
+    height: 38px;
+  }
+
+  .brand strong {
+    font-size: 17px;
+  }
+
+  .brand small,
+  .nav-list button span {
+    font-size: 12px;
+  }
+
+  .nav-list {
+    gap: 6px;
+  }
+
+  .nav-list button,
+  .bottom-nav button {
+    min-height: 42px;
+    padding-inline: 9px;
+  }
+
+  .manager-box {
+    margin-top: 12px;
+    padding: 10px;
+  }
+
+  .main-panel {
+    padding: 10px 10px 84px;
+  }
+
+  .topbar {
+    margin-bottom: 10px;
+    padding: 10px;
+  }
+
+  .topbar h1 {
+    font-size: 24px;
+  }
+
+  .business-chips span,
+  .saved-note,
+  .closing-badge {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+
+  .panel {
+    padding: 10px;
+  }
+
+  .sale-grid,
+  .two-column,
+  .closing-grid,
+  .screen-stack,
+  .side-stack {
+    gap: 10px;
+  }
+
+  .sale-grid {
+    grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr);
+    max-width: 1120px;
+  }
+
+  .section-heading {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .title-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-bottom: 2px;
+  }
+
+  h3 {
+    font-size: 17px;
+  }
+
+  .section-heading p,
+  label,
+  p {
+    font-size: 13px;
+  }
+
+  label {
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .manager-box input,
+  .manager-box button,
+  input,
+  textarea {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 15px;
+  }
+
+  textarea {
+    min-height: 58px;
+  }
+
+  .customer-mode-grid {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .customer-mode-grid button {
+    min-height: 62px;
+    padding: 10px;
+  }
+
+  .customer-mode-grid button strong {
+    font-size: 18px;
+  }
+
+  .customer-picker,
+  .new-customer-card,
+  .today-mini-control,
+  .customer-health,
+  .receipt-box,
+  .statement-box {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  .saved-customer-grid {
+    max-height: 240px;
+    gap: 7px;
+  }
+
+  .saved-customer-grid button {
+    min-height: 58px;
+    padding: 9px;
+  }
+
+  .saved-customer-grid button strong,
+  .meter-section-label,
+  .health-grid strong,
+  .today-mini-control strong {
+    font-size: 16px;
+  }
+
+  .meters-input {
+    min-height: 68px;
+    font-size: 34px;
+  }
+
+  .quick-grid {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .quick-grid button,
+  .segmented button,
+  .suggestions button,
+  .customer-shortcuts button,
+  .customer-list button,
+  .primary-lite,
+  .data-tools button,
+  .file-tool-button {
+    min-height: 38px;
+    font-size: 14px;
+  }
+
+  .segmented {
+    margin-top: 10px;
+  }
+
+  .segmented button {
+    font-size: 16px;
+  }
+
+  .primary-action {
+    min-height: 52px;
+    margin-top: 10px;
+    font-size: 20px;
+  }
+
+  .preview-number {
+    font-size: 38px;
+  }
+}
+
+@media (max-width: 1180px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {
+  .main-panel:has(input:focus),
+  .main-panel:has(textarea:focus) {
+    padding-top: 6px;
+  }
+
+  .main-panel:has(input:focus) .topbar,
+  .main-panel:has(textarea:focus) .topbar,
+  .main-panel:has(input:focus) .customer-directory-panel,
+  .main-panel:has(textarea:focus) .customer-directory-panel {
+    display: none;
+  }
+
+  .main-panel:has(input:focus) .sale-grid,
+  .main-panel:has(textarea:focus) .sale-grid {
+    grid-template-columns: 1fr;
+    max-width: 720px;
+  }
+
+  .main-panel:has(input:focus) .sale-panel,
+  .main-panel:has(textarea:focus) .sale-panel {
+    padding: 8px 10px;
+  }
+}
+
 @media (max-width: 760px) {
   .main-panel {
     padding: 18px 12px 104px;
