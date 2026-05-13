@@ -6,6 +6,8 @@ import {
   dayKeyFromDate,
   deriveCustomerStatus,
   findRecentDuplicateTruck,
+  makeCustomerName,
+  normalizeTruckNumber,
 } from "./business";
 
 describe("water station business rules", () => {
@@ -217,5 +219,14 @@ describe("water station business rules", () => {
 
   it("marks customers over credit limit as needing payment", () => {
     expect(deriveCustomerStatus(64, 50)).toBe("needs-payment");
+  });
+
+  it("normalizes truck numbers to digits for old-employee number-pad entry", () => {
+    expect(normalizeTruckNumber(" تنك 12-34 ")).toBe("1234");
+  });
+
+  it("allows customer name to be optional by falling back to the truck number", () => {
+    expect(makeCustomerName("", "1234")).toBe("تنك 1234");
+    expect(makeCustomerName(" أبو أحمد ", "1234")).toBe("أبو أحمد");
   });
 });

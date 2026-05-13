@@ -38,6 +38,17 @@ function isValidNumber(value: number): boolean {
   return Number.isFinite(value) && !Number.isNaN(value);
 }
 
+export function normalizeTruckNumber(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+export function makeCustomerName(name: string, truckNumber: string): string {
+  const cleanName = name.trim();
+  if (cleanName) return cleanName;
+  const cleanTruck = normalizeTruckNumber(truckNumber);
+  return cleanTruck ? `تنك ${cleanTruck}` : "عميل بدون اسم";
+}
+
 export function calculateSalePayment(
   meters: number,
   paymentType: PaymentType,

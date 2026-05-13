@@ -31,6 +31,8 @@ import {
   deriveCustomerStatus,
   findRecentDuplicateTruck,
   getDayPayments,
+  makeCustomerName,
+  normalizeTruckNumber,
   roundMoney,
   todayKey,
 } from "./lib/business";
@@ -101,10 +103,6 @@ function formatJod(value: number) {
 
 function formatMeters(value: number) {
   return `${roundMoney(value)} متر`;
-}
-
-function digitsOnly(value: string) {
-  return value.replace(/\D/g, "");
 }
 
 function arabicPayment(type: PaymentType) {
@@ -385,6 +383,7 @@ function SaleScreen({
   const [query, setQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerMode, setCustomerMode] = useState<"saved" | "new">("saved");
+  const [newCustomerName, setNewCustomerName] = useState("");
   const [truckNumber, setTruckNumber] = useState("");
   const [meters, setMeters] = useState("12");
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
@@ -403,9 +402,10 @@ function SaleScreen({
     (customer) => customer.id === selectedCustomerId,
   );
   const searchedCustomers = data.customers
-    .filter((customer) =>
-      `${customer.name} ${customer.truckNumbers.join(" ")} ${customer.phone}`.includes(query),
-    )
+    .filter((customer) => {
+      const numericHaystack = normalizeTruckNumber(`${customer.truckNumbers.join(" ")} ${customer.phone}`);
+      return numericHaystack.includes(query);
+    })
     .slice(0, 30);
   const frequentCustomers = [...data.customers]
     .sort((a, b) => (b.lastSaleAt ?? "").localeCompare(a.lastSaleAt ?? ""))
@@ -447,10 +447,12 @@ function SaleScreen({
   }, [activePricePlan, numericMeters, paymentType]);
 
   const chooseCustomer = (customer: Customer) => {
+    const primaryTruck = normalizeTruckNumber(customer.truckNumbers[0] ?? "");
     setCustomerMode("saved");
     setSelectedCustomerId(customer.id);
-    setQuery(customer.name);
-    setTruckNumber(digitsOnly(customer.truckNumbers[0] ?? ""));
+    setQuery(primaryTruck);
+    setNewCustomerName(customer.name);
+    setTruckNumber(primaryTruck);
     setPhone(customer.phone);
     setNewCustomerPricePlan(customer.pricePlan ?? "standard");
   };
@@ -459,6 +461,7 @@ function SaleScreen({
     setCustomerMode("new");
     setSelectedCustomerId("");
     setQuery("");
+    setNewCustomerName("");
     setTruckNumber("");
     setPhone("");
     setNewCustomerPricePlan("standard");
@@ -471,6 +474,7 @@ function SaleScreen({
     setCustomerMode("saved");
     setSelectedCustomerId("");
     setQuery("");
+    setNewCustomerName("");
     setTruckNumber("");
     setPhone("");
     setNewCustomerPricePlan("standard");
@@ -517,7 +521,8 @@ function SaleScreen({
 
   const recordSale = () => {
     setError("");
-    const customerName = query.trim();
+    const cleanTruckNumber = normalizeTruckNumber(truckNumber);
+    const customerName = makeCustomerName(customerMode === "new" ? newCustomerName : (selectedCustomer?.name ?? newCustomerName), cleanTruckNumber);
     const amountMeters = Number(meters);
 
     if (customerMode === "saved" && !selectedCustomerId) {
@@ -525,16 +530,12 @@ function SaleScreen({
       return;
     }
 
-    if (!customerName) {
-      setError("اسم العميل مطلوب");
-      return;
-    }
     if (!amountMeters || amountMeters <= 0) {
       setError("عدد الأمتار مطلوب ويجب أن يكون أكبر من صفر");
       return;
     }
-    if (!truckNumber.trim()) {
-      setError("رقم التنك مطلوب حتى لا تضيع المبيعات بين العملاء");
+    if (!cleanTruckNumber) {
+      setError("رقم السيارة / التنك مطلوب");
       return;
     }
     if (todayClosing) {
@@ -560,7 +561,7 @@ function SaleScreen({
       return;
     }
 
-    const duplicate = findRecentDuplicateTruck(data.sales, truckNumber);
+    const duplicate = findRecentDuplicateTruck(data.sales, cleanTruckNumber);
     if (duplicate && !window.confirm(`هذا التنك مسجل قبل قليل باسم ${duplicate.customerName}. هل أنت متأكد أنه بيع جديد؟`)) {
       return;
     }
@@ -584,7 +585,7 @@ function SaleScreen({
             id: customerId,
             name: customerName,
             phone,
-            truckNumbers: truckNumber ? [truckNumber] : [],
+            truckNumbers: [cleanTruckNumber],
             debtBalance: 0,
             creditLimit: 50,
             pricePlan: newCustomerPricePlan,
@@ -598,13 +599,13 @@ function SaleScreen({
           customer.id === customerId
             ? {
                 ...customer,
-                name: customerName,
+                name: customer.name.trim() || customerName,
                 phone,
                 pricePlan: customer.pricePlan ?? "standard",
                 truckNumbers: Array.from(
                   new Set([
-                    ...(truckNumber ? [truckNumber] : []),
-                    ...customer.truckNumbers,
+                    cleanTruckNumber,
+                    ...customer.truckNumbers.map(normalizeTruckNumber).filter(Boolean),
                   ]),
                 ),
               }
@@ -617,7 +618,7 @@ function SaleScreen({
         createdAt: now,
         customerId,
         customerName,
-        truckNumber: digitsOnly(truckNumber),
+        truckNumber: cleanTruckNumber,
         meters: amountMeters,
         pricePerMeter: calculation.pricePerMeter,
         pricePlan: activePricePlan,
@@ -675,8 +676,8 @@ function SaleScreen({
             <Users size={30} />
           </span>
           <div>
-            <h2>اختيار العميل</h2>
-            <p>ابحث بالاسم أو رقم التنك أو الهاتف.</p>
+            <h2>اختيار السيارة</h2>
+            <p>ابحث برقم السيارة / التنك فقط — لوحة أرقام أسهل للموظف.</p>
           </div>
         </div>
 
@@ -686,38 +687,40 @@ function SaleScreen({
             onClick={startSavedCustomer}
           >
             <Users size={28} />
-            <strong>عميل محفوظ</strong>
-            <span>اختيار من العملاء المعروفين</span>
+            <strong>سيارة محفوظة</strong>
+            <span>اختيار برقم السيارة / التنك</span>
           </button>
           <button className={customerMode === "new" ? "active" : ""} onClick={startNewCustomer}>
             <UserPlus size={28} />
-            <strong>عميل جديد</strong>
-            <span>إضافة الاسم والتنك مرة واحدة</span>
+            <strong>سيارة جديدة</strong>
+            <span>رقم السيارة مطلوب، الاسم اختياري</span>
           </button>
         </div>
 
         {customerMode === "saved" ? (
           <section className="customer-picker">
             <label>
-              بحث العملاء
+              بحث برقم السيارة / التنك
               <div className="search-input">
                 <Search size={20} />
                 <input
                   value={query}
                   onChange={(event) => {
-                    setQuery(event.target.value);
+                    setQuery(normalizeTruckNumber(event.target.value));
                     setSelectedCustomerId("");
                   }}
-                  placeholder="ابحث بالاسم أو رقم التنك أو الهاتف"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="اكتب رقم السيارة فقط"
                 />
               </div>
             </label>
 
             <div className="frequent-strip" aria-label="العملاء المتكررون">
-              <span>العملاء المتكررون</span>
+              <span>السيارات المتكررة</span>
               {frequentCustomers.slice(0, 5).map((customer) => (
                 <button key={customer.id} onClick={() => chooseCustomer(customer)}>
-                  {customer.name}
+                  {customer.truckNumbers[0] || customer.name}
                 </button>
               ))}
             </div>
@@ -730,10 +733,10 @@ function SaleScreen({
                   onClick={() => chooseCustomer(customer)}
                 >
                   <span className="customer-row-main">
-                    <strong>{customer.name}</strong>
+                    <strong>{customer.truckNumbers[0] || "بدون رقم"}</strong>
                     <b>{formatJod(customer.debtBalance)}</b>
                   </span>
-                  <span>{customer.truckNumbers.join("، ") || "بدون رقم تنك"}</span>
+                  <span>{customer.name}</span>
                   <span>{customer.phone || "لا يوجد هاتف"}</span>
                   <span className="customer-badges">
                     <em>{arabicPricePlan(customer.pricePlan)}</em>
@@ -752,22 +755,23 @@ function SaleScreen({
         ) : (
           <div className="new-customer-card">
             <label>
-              اسم العميل الجديد
+              رقم السيارة / التنك (مطلوب)
               <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="مثال: محمد العجارمة"
+                value={truckNumber}
+                onChange={(event) => setTruckNumber(normalizeTruckNumber(event.target.value))}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="مثال: 1234567"
+                autoFocus
               />
             </label>
             <div className="field-row">
               <label>
-                رقم التنك
+                اسم العميل (اختياري)
                 <input
-                  value={truckNumber}
-                  onChange={(event) => setTruckNumber(digitsOnly(event.target.value))}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="مثال: 1234567"
+                  value={newCustomerName}
+                  onChange={(event) => setNewCustomerName(event.target.value)}
+                  placeholder="اختياري"
                 />
               </label>
               <label>
@@ -857,12 +861,12 @@ function SaleScreen({
               <div className="health-warning">العميل فوق حد الائتمان</div>
             )}
           </section>
-        ) : customerMode === "new" && query ? (
+        ) : customerMode === "new" && truckNumber ? (
           <div className="customer-strip">
-            <strong>{query}</strong>
-            <span>عميل جديد</span>
+            <strong>{truckNumber}</strong>
+            <span>{newCustomerName.trim() || "بدون اسم"}</span>
             <span>{arabicPricePlan(newCustomerPricePlan)}</span>
-            {truckNumber && <span>رقم التنك: {truckNumber}</span>}
+            <span>سيارة جديدة</span>
           </div>
         ) : (
           <div className="empty-customer-choice">اختر عميل محفوظ أو أضف عميل جديد أولاً</div>
