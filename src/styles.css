@@ -1595,12 +1595,14 @@ tr.deleted {
 
   .sale-grid {
     display: grid;
-    grid-template-columns: minmax(300px, 0.78fr) minmax(360px, 1.22fr);
-    grid-template-areas: "customer sale";
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "customer"
+      "sale" !important;
     gap: 8px;
     width: 100%;
-    max-width: 100%;
-    margin: 0;
+    max-width: 760px;
+    margin: 0 auto;
     align-items: start;
   }
 

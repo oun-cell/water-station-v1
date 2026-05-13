@@ -20,7 +20,7 @@ if ("serviceWorker" in navigator) {
     });
 
     navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js?v=numeric-car-search-v10`)
+      .register(`${import.meta.env.BASE_URL}sw.js?v=landscape-stack-v11`)
       .then((registration) => registration.update())
       .catch(() => {
         // The app still works without offline caching; registration can fail on non-secure LAN URLs.
