@@ -22,12 +22,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
-  DAILY_MAX_PRODUCTION,
   LOYAL_TANK_PRICES,
-  OPENING_HOURS_LABEL,
   PRICE_PER_METER,
-  PRODUCTION_RATE_PER_HOUR,
-  STORAGE_POOL_CAPACITY,
   calculateClosing,
   calculateDayTotals,
   calculateSalePayment,
@@ -241,16 +237,10 @@ function App() {
       </aside>
 
       <main className="main-panel">
-        <header className="topbar">
+        <header className="topbar compact-topbar">
           <div>
-            <p>السعر ثابت: {PRICE_PER_METER} JOD لكل متر</p>
+            <p>السعر: {PRICE_PER_METER} JOD / متر</p>
             <h1>{navItems.find((item) => item.view === view)?.label}</h1>
-          </div>
-          <div className="business-chips">
-            <span>الإنتاج {PRODUCTION_RATE_PER_HOUR} متر/ساعة</span>
-            <span>اليومي {DAILY_MAX_PRODUCTION} متر</span>
-            <span>{OPENING_HOURS_LABEL}</span>
-            <span>السعة {STORAGE_POOL_CAPACITY.toLocaleString()} متر</span>
           </div>
         </header>
 
