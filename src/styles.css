@@ -1486,6 +1486,16 @@ tr.deleted {
     font-size: 11px;
     padding: 3px;
   }
+
+  .app-shell:has(input:focus) .bottom-nav,
+  .app-shell:has(textarea:focus) .bottom-nav {
+    display: none !important;
+  }
+
+  .app-shell:has(input:focus) .main-panel,
+  .app-shell:has(textarea:focus) .main-panel {
+    padding-bottom: 16px;
+  }
 }
 
 @media (max-width: 1400px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {
@@ -1861,6 +1871,16 @@ tr.deleted {
   .bottom-nav button.active {
     color: #ffffff;
     background: #1d4ed8;
+  }
+
+  .app-shell:has(input:focus) .bottom-nav,
+  .app-shell:has(textarea:focus) .bottom-nav {
+    display: none !important;
+  }
+
+  .app-shell:has(input:focus) .main-panel,
+  .app-shell:has(textarea:focus) .main-panel {
+    padding-bottom: 16px;
   }
 }
 
