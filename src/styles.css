@@ -1884,9 +1884,181 @@ tr.deleted {
   }
 }
 
+/* Compact closing page: use tablet width instead of one long vertical page */
+@media (max-width: 1400px), (pointer: coarse) {
+  .closing-screen {
+    gap: 8px;
+    padding-bottom: 96px;
+  }
+
+  .closing-summary-panel,
+  .closing-result-panel,
+  .meter-card {
+    color: #0f172a;
+    background: #ffffff;
+    border: 1px solid #dbe7f0;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07);
+  }
+
+  .closing-summary-panel .section-heading {
+    margin-bottom: 8px;
+  }
+
+  .closing-summary-panel .section-heading p {
+    display: none;
+  }
+
+  .closing-badge {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 2px solid currentColor;
+  }
+
+  .closing-daily-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .closing-daily-stats .stat-card,
+  .closing-result-stats .stat-card {
+    min-height: 56px;
+    padding: 8px;
+    gap: 7px;
+    border-color: #dbe7f0;
+    background: #f8fafc;
+    box-shadow: none;
+  }
+
+  .closing-daily-stats .icon-pill,
+  .closing-result-stats .icon-pill {
+    width: 32px;
+    height: 32px;
+  }
+
+  .closing-daily-stats .icon-pill svg,
+  .closing-result-stats .icon-pill svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .closing-daily-stats .stat-card p,
+  .closing-result-stats .stat-card p {
+    margin-bottom: 2px;
+    color: #475569;
+    font-size: 11px;
+  }
+
+  .closing-daily-stats .stat-card strong,
+  .closing-result-stats .stat-card strong {
+    color: #0f172a;
+    font-size: 17px;
+    line-height: 1.1;
+  }
+
+  .closing-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .meter-card {
+    padding: 10px;
+  }
+
+  .meter-card h2,
+  .closing-result-panel h2 {
+    margin-bottom: 6px;
+    font-size: 20px;
+  }
+
+  .meter-input-row,
+  .closing-final-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .meter-input-row label,
+  .closing-final-grid label {
+    margin-top: 0;
+  }
+
+  .meter-input-row input,
+  .closing-final-grid input {
+    min-height: 46px;
+    font-size: 18px;
+    border: 2px solid #cbd5e1;
+    background: #ffffff;
+  }
+
+  .meter-card .meter-total {
+    margin-top: 6px;
+    padding: 8px 10px;
+    color: #075985;
+    background: #e0f2fe;
+    border: 1px solid #7dd3fc;
+    border-radius: 8px;
+    font-size: 24px;
+    text-align: center;
+  }
+
+  .photo-row {
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .photo-input {
+    min-height: 54px;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 2px dashed #93c5fd;
+  }
+
+  .photo-input img {
+    height: 54px;
+  }
+
+  .closing-result-panel {
+    padding: 10px;
+  }
+
+  .closing-result-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .status-list {
+    display: grid;
+    gap: 6px;
+    margin-block: 8px;
+  }
+
+  .status-list .alert {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .closing-final-grid textarea {
+    min-height: 46px;
+    resize: vertical;
+  }
+
+  .closing-result-panel .primary-action {
+    min-height: 48px;
+    margin-top: 8px;
+    font-size: 18px;
+  }
+}
+
 @media (max-width: 820px) {
-  .sale-grid {
+  .sale-grid,
+  .closing-grid,
+  .meter-input-row,
+  .closing-final-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sale-grid {
     grid-template-areas:
       "customer"
       "sale";
@@ -1894,5 +2066,10 @@ tr.deleted {
 
   .quick-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .closing-daily-stats,
+  .closing-result-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

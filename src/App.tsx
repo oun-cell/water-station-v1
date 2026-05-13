@@ -1221,8 +1221,8 @@ function ClosingScreen({
   };
 
   return (
-    <div className="screen-stack">
-      <section className="panel">
+    <div className="screen-stack closing-screen">
+      <section className="panel closing-summary-panel">
         <div className="section-heading spread">
           <div>
             <h2>قفل أرقام اليوم</h2>
@@ -1232,7 +1232,7 @@ function ClosingScreen({
             {calculated.status === "balanced" ? "مطابق" : calculated.status === "warning" ? "يوجد فرق" : "يوجد خطأ"}
           </strong>
         </div>
-        <div className="stats-grid">
+        <div className="stats-grid closing-daily-stats">
           <StatCard title="مبيعات اليوم" value={formatJod(dayTotals.salesRevenue)} icon={Wallet} />
           <StatCard title="كاش البيع" value={formatJod(dayTotals.saleCash)} icon={Wallet} tone="green" />
           <StatCard title="CliQ" value={formatJod(dayTotals.saleCliq)} icon={Wallet} tone="green" />
@@ -1271,9 +1271,9 @@ function ClosingScreen({
         />
       </div>
 
-      <section className="panel result-panel">
+      <section className="panel result-panel closing-result-panel">
         <h2>نتيجة الإغلاق</h2>
-        <div className="stats-grid">
+        <div className="stats-grid closing-result-stats">
           <StatCard title="إجمالي العدادين" value={formatMeters(calculated.actualMeters)} icon={Gauge} />
           <StatCard title="المبيعات المسجلة" value={formatMeters(dayTotals.recordedMeters)} icon={ClipboardList} />
           <StatCard
@@ -1303,23 +1303,25 @@ function ClosingScreen({
           )}
         </div>
 
-        <label>
-          الكاش الموجود فعلياً بالصندوق
-          <input
-            value={form.cashCounted}
-            onChange={(event) => setForm({ ...form, cashCounted: event.target.value })}
-            inputMode="decimal"
-            placeholder={`المفروض: ${formatJod(dayTotals.expectedCash)}`}
-          />
-        </label>
-        <label>
-          ملاحظات / تفسير أي فرق
-          <textarea
-            value={form.notes}
-            onChange={(event) => setForm({ ...form, notes: event.target.value })}
-            placeholder="مثال: تنك نسي الموظف يسجله / كاش تم تحويله CliQ / خطأ قراءة"
-          />
-        </label>
+        <div className="closing-final-grid">
+          <label>
+            الكاش الموجود فعلياً بالصندوق
+            <input
+              value={form.cashCounted}
+              onChange={(event) => setForm({ ...form, cashCounted: event.target.value })}
+              inputMode="decimal"
+              placeholder={`المفروض: ${formatJod(dayTotals.expectedCash)}`}
+            />
+          </label>
+          <label>
+            ملاحظات / تفسير أي فرق
+            <textarea
+              value={form.notes}
+              onChange={(event) => setForm({ ...form, notes: event.target.value })}
+              placeholder="مثال: تنك نسي الموظف يسجله / كاش تم تحويله CliQ / خطأ قراءة"
+            />
+          </label>
+        </div>
         <button className="primary-action" onClick={saveClosing} disabled={!canSave}>
           حفظ وقفل إغلاق اليوم
         </button>
@@ -1355,14 +1357,16 @@ function MeterCard({
   return (
     <section className="panel meter-card">
       <h2>{title}</h2>
-      <label>
-        قراءة العداد الصباحية
-        <input value={opening} onChange={(event) => onOpening(event.target.value)} inputMode="decimal" />
-      </label>
-      <label>
-        قراءة العداد المسائية
-        <input value={closing} onChange={(event) => onClosing(event.target.value)} inputMode="decimal" />
-      </label>
+      <div className="meter-input-row">
+        <label>
+          قراءة الصباح
+          <input value={opening} onChange={(event) => onOpening(event.target.value)} inputMode="decimal" />
+        </label>
+        <label>
+          قراءة المساء
+          <input value={closing} onChange={(event) => onClosing(event.target.value)} inputMode="decimal" />
+        </label>
+      </div>
       <strong className="meter-total">{formatMeters(usage)}</strong>
       <div className="photo-row">
         <PhotoInput label="صورة صباحية" image={openingPhoto} onChange={onOpeningPhoto} />
