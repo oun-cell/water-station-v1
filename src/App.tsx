@@ -107,6 +107,10 @@ function formatMeters(value: number) {
   return `${roundMoney(value)} متر`;
 }
 
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 function arabicPayment(type: PaymentType) {
   if (type === "cash") return "كاش";
   if (type === "cliq") return "CliQ";
@@ -457,7 +461,7 @@ function SaleScreen({
     setCustomerMode("saved");
     setSelectedCustomerId(customer.id);
     setQuery(customer.name);
-    setTruckNumber(customer.truckNumbers[0] ?? "");
+    setTruckNumber(digitsOnly(customer.truckNumbers[0] ?? ""));
     setPhone(customer.phone);
     setNewCustomerPricePlan(customer.pricePlan ?? "standard");
   };
@@ -544,10 +548,6 @@ function SaleScreen({
       setError("رقم التنك مطلوب حتى لا تضيع المبيعات بين العملاء");
       return;
     }
-    if ((paymentType === "debt" || paymentType === "partial") && !phone.trim()) {
-      setError("رقم الهاتف مطلوب عند تسجيل دين أو دفع جزئي");
-      return;
-    }
     if (todayClosing) {
       setError("تم إغلاق اليوم. لا يمكن تسجيل بيع جديد بعد الإغلاق.");
       return;
@@ -628,7 +628,7 @@ function SaleScreen({
         createdAt: now,
         customerId,
         customerName,
-        truckNumber,
+        truckNumber: digitsOnly(truckNumber),
         meters: amountMeters,
         pricePerMeter: calculation.pricePerMeter,
         pricePlan: activePricePlan,
@@ -775,12 +775,14 @@ function SaleScreen({
                 رقم التنك
                 <input
                   value={truckNumber}
-                  onChange={(event) => setTruckNumber(event.target.value)}
-                  placeholder="مثال: 12-34567"
+                  onChange={(event) => setTruckNumber(digitsOnly(event.target.value))}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="مثال: 1234567"
                 />
               </label>
               <label>
-                الهاتف
+                الهاتف (اختياري)
                 <input
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
