@@ -20,7 +20,7 @@ if ("serviceWorker" in navigator) {
     });
 
     navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js?v=safe-tablet-v3`)
+      .register(`${import.meta.env.BASE_URL}sw.js?v=keyboard-fix-v4`)
       .then((registration) => registration.update())
       .catch(() => {
         // The app still works without offline caching; registration can fail on non-secure LAN URLs.

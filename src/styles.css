@@ -1494,10 +1494,8 @@ tr.deleted {
     padding-top: 6px;
   }
 
-  .main-panel:has(input:focus) .topbar,
-  .main-panel:has(textarea:focus) .topbar,
-  .main-panel:has(input:focus) .customer-directory-panel,
-  .main-panel:has(textarea:focus) .customer-directory-panel {
+  .main-panel:has(.sale-panel input:focus) .topbar,
+  .main-panel:has(.sale-panel textarea:focus) .topbar {
     display: none;
   }
 
