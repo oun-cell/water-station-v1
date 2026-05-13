@@ -48,9 +48,9 @@ type View = "sale" | "dashboard" | "closing" | "debts" | "history" | "report";
 const navItems: Array<{ view: View; label: string; icon: typeof Plus; manager?: boolean }> = [
   { view: "sale", label: "بيع جديد", icon: Plus },
   { view: "dashboard", label: "لوحة اليوم", icon: BarChart3, manager: true },
-  { view: "closing", label: "إغلاق اليوم", icon: Gauge, manager: true },
-  { view: "debts", label: "ديون العملاء", icon: Users, manager: true },
-  { view: "history", label: "السجل", icon: History, manager: true },
+  { view: "closing", label: "الإغلاق والعدادات", icon: Gauge },
+  { view: "debts", label: "ديون العملاء", icon: Users },
+  { view: "history", label: "سجل المبيعات", icon: History },
   { view: "report", label: "التقرير", icon: FileText, manager: true },
 ];
 
@@ -254,7 +254,7 @@ function App() {
         {view === "dashboard" && managerMode && (
           <Dashboard customers={data.customers} todaySales={todaySales} />
         )}
-        {view === "closing" && managerMode && (
+        {view === "closing" && (
           <ClosingScreen
             todaySales={todaySales}
             payments={data.payments}
@@ -262,10 +262,10 @@ function App() {
             setData={setData}
           />
         )}
-        {view === "debts" && managerMode && (
+        {view === "debts" && (
           <DebtLedger data={data} setData={setData} />
         )}
-        {view === "history" && managerMode && (
+        {view === "history" && (
           <SalesHistory sales={data.sales} closings={data.closings} managerMode={managerMode} setData={setData} />
         )}
         {view === "report" && managerMode && (
@@ -1573,6 +1573,7 @@ function DebtLedger({
 function SalesHistory({
   sales,
   closings,
+  managerMode,
   setData,
 }: {
   sales: Sale[];
@@ -1611,7 +1612,7 @@ function SalesHistory({
       <div className="section-heading spread">
         <div>
           <h2>سجل المبيعات</h2>
-          <p>البحث بالعميل أو التنك أو طريقة الدفع.</p>
+          <p>البحث بالعميل أو التنك أو طريقة الدفع. الحذف يحتاج دخول المدير.</p>
         </div>
         <input
           className="small-search"
@@ -1647,11 +1648,12 @@ function SalesHistory({
                 <td>{formatJod(sale.cliqReceived ?? 0)}</td>
                 <td>{formatJod(sale.debtAdded)}</td>
                 <td>
-                  {!sale.deleted && (
+                  {!sale.deleted && managerMode && (
                     <button className="icon-button danger-text" onClick={() => deleteSale(sale.id)}>
                       <Trash2 size={18} />
                     </button>
                   )}
+                  {!sale.deleted && !managerMode && <span className="muted-text">عرض فقط</span>}
                 </td>
               </tr>
             ))}
