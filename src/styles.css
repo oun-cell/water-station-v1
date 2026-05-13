@@ -182,6 +182,12 @@ textarea {
   color: #e6f7ff !important;
 }
 
+.pin-error {
+  color: #fecaca;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .main-panel {
   padding: clamp(14px, 1.7vw, 22px);
   padding-bottom: 100px;

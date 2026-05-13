@@ -53,7 +53,16 @@ const navItems: Array<{ view: View; label: string; icon: typeof Plus; manager?: 
 ];
 
 const quickMeters = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22];
-const MANAGER_PIN = "REMOVED_PIN";
+const MANAGER_PIN_STORAGE_KEY = "water-station-manager-pin";
+
+function readManagerPin() {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(MANAGER_PIN_STORAGE_KEY) ?? "";
+}
+
+function saveManagerPin(pin: string) {
+  window.localStorage.setItem(MANAGER_PIN_STORAGE_KEY, pin);
+}
 
 type BackupFile = {
   app: "jordan-water-station";
@@ -152,7 +161,9 @@ function App() {
   const { data, setData, resetDemoData, clearData } = usePersistentData();
   const [view, setView] = useState<View>("sale");
   const [managerMode, setManagerMode] = useState(false);
+  const [managerPin, setManagerPin] = useState(() => readManagerPin());
   const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
 
   const todaySales = useMemo(() => getTodaySales(data.sales), [data.sales]);
   const latestClosing = data.closings.find((closing) => closing.date === todayKey());
@@ -205,20 +216,41 @@ function App() {
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                if (pin === MANAGER_PIN) {
+                const cleanPin = pin.replace(/\D/g, "");
+                if (cleanPin.length < 4) {
+                  setPinError("أدخل 4 أرقام على الأقل");
+                  return;
+                }
+                if (!managerPin) {
+                  saveManagerPin(cleanPin);
+                  setManagerPin(cleanPin);
                   setManagerMode(true);
                   setPin("");
+                  setPinError("");
+                  return;
+                }
+                if (cleanPin === managerPin) {
+                  setManagerMode(true);
+                  setPin("");
+                  setPinError("");
+                } else {
+                  setPinError("PIN غير صحيح");
                 }
               }}
             >
               <input
                 value={pin}
-                onChange={(event) => setPin(event.target.value)}
+                onChange={(event) => {
+                  setPin(event.target.value.replace(/\D/g, ""));
+                  setPinError("");
+                }}
                 inputMode="numeric"
-                placeholder="PIN المدير"
-                aria-label="PIN المدير"
+                type="password"
+                placeholder={managerPin ? "PIN المدير" : "اختر PIN المدير"}
+                aria-label={managerPin ? "PIN المدير" : "اختر PIN المدير"}
               />
-              <button type="submit">دخول</button>
+              {pinError && <small className="pin-error">{pinError}</small>}
+              <button type="submit">{managerPin ? "دخول" : "حفظ PIN"}</button>
             </form>
           ) : (
             <button

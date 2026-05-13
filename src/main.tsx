@@ -20,7 +20,7 @@ if ("serviceWorker" in navigator) {
     });
 
     navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js?v=landscape-stack-v11`)
+      .register(`${import.meta.env.BASE_URL}sw.js?v=local-manager-pin-v12`)
       .then((registration) => registration.update())
       .catch(() => {
         // The app still works without offline caching; registration can fail on non-secure LAN URLs.
