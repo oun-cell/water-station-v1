@@ -1,0 +1,20 @@
+{
+  "name": "نظام محطة المياه",
+  "short_name": "محطة المياه",
+  "description": "نظام بيع وإغلاق وديون لمحطة المياه",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "ar-JO",
+  "background_color": "#061729",
+  "theme_color": "#061729",
+  "icons": [
+    {
+      "src": "./generated/app-concept.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
