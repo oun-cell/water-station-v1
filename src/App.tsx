@@ -54,7 +54,7 @@ type View = "sale" | "dashboard" | "closing" | "debts" | "history" | "report";
 const navItems: Array<{ view: View; label: string; icon: typeof Plus; manager?: boolean }> = [
   { view: "sale", label: "بيع جديد", icon: Plus },
   { view: "dashboard", label: "لوحة اليوم", icon: BarChart3, manager: true },
-  { view: "closing", label: "الإغلاق والعدادات", icon: Gauge },
+  { view: "closing", label: "ملخص اليوم", icon: Gauge },
   { view: "debts", label: "ديون العملاء", icon: Users },
   { view: "history", label: "سجل المبيعات", icon: History },
   { view: "report", label: "التقرير", icon: FileText, manager: true },
@@ -212,7 +212,7 @@ function App() {
           </span>
           <div>
             <strong>محطة المياه</strong>
-            <small>نظام البيع والإغلاق</small>
+            <small>نظام البيع وملخص اليوم</small>
           </div>
         </div>
 
@@ -302,18 +302,16 @@ function App() {
           </div>
         </header>
 
-        {view === "sale" && <SaleScreen data={data} setData={setData} todayClosing={latestClosing} />}
+        {view === "sale" && <SaleScreen data={data} setData={setData} />}
         {view === "dashboard" && managerMode && (
           <Dashboard customers={data.customers} todaySales={todaySales} />
         )}
         {view === "closing" && (
-          <ClosingScreen
+          <TodaySummaryScreen
             todaySales={todaySales}
             payments={data.payments}
-            closings={data.closings}
-            setData={setData}
+            customers={data.customers}
             syncState={syncState}
-            onSyncStateChange={refreshSyncState}
           />
         )}
         {view === "debts" && (
@@ -475,11 +473,9 @@ function BackupTools({
 function SaleScreen({
   data,
   setData,
-  todayClosing,
 }: {
   data: ReturnType<typeof usePersistentData>["data"];
   setData: ReturnType<typeof usePersistentData>["setData"];
-  todayClosing?: DailyClosing;
 }) {
   const [query, setQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -639,11 +635,6 @@ function SaleScreen({
       setError("رقم السيارة / التنك مطلوب");
       return;
     }
-    if (todayClosing) {
-      setError("تم إغلاق اليوم. لا يمكن تسجيل بيع جديد بعد الإغلاق.");
-      return;
-    }
-
     const oldDebtPaymentAmount = roundMoney(Number(oldDebtPayment || 0));
     if (oldDebtPayment.trim() && !Number.isFinite(Number(oldDebtPayment))) {
       setError("دفعة الدين السابق يجب أن تكون رقماً صحيحاً");
@@ -1228,242 +1219,144 @@ function Dashboard({
   );
 }
 
-function ClosingScreen({
+function TodaySummaryScreen({
   todaySales,
   payments,
-  closings,
-  setData,
+  customers,
   syncState,
-  onSyncStateChange,
 }: {
   todaySales: Sale[];
   payments: ReturnType<typeof usePersistentData>["data"]["payments"];
-  closings: DailyClosing[];
-  setData: ReturnType<typeof usePersistentData>["setData"];
+  customers: Customer[];
   syncState: SyncState;
-  onSyncStateChange: () => void;
 }) {
   const today = todayKey();
   const todayPayments = getDayPayments(payments, today);
   const dayTotals = calculateDayTotals(todaySales, todayPayments);
-  const savedToday = closings.find((closing) => closing.date === today);
-  const previousClosing = [...closings]
-    .filter((closing) => closing.date < today)
-    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  const totalDebtBalance = roundMoney(customers.reduce((sum, customer) => sum + customer.debtBalance, 0));
+  const customersWithDebt = customers
+    .filter((customer) => customer.debtBalance > 0)
+    .sort((a, b) => b.debtBalance - a.debtBalance)
+    .slice(0, 6);
+  const topSales = [...todaySales]
+    .sort((a, b) => b.totalAmount - a.totalAmount)
+    .slice(0, 6);
 
-  const [form, setForm] = useState(() => ({
-    pool1OpeningMeter: String(savedToday?.pool1OpeningMeter ?? previousClosing?.pool1ClosingMeter ?? ""),
-    pool1ClosingMeter: String(savedToday?.pool1ClosingMeter ?? ""),
-    pool2OpeningMeter: String(savedToday?.pool2OpeningMeter ?? previousClosing?.pool2ClosingMeter ?? ""),
-    pool2ClosingMeter: String(savedToday?.pool2ClosingMeter ?? ""),
-    cashCounted: String(savedToday?.cashCounted ?? ""),
-    notes: savedToday?.notes ?? "",
-    pool1OpeningPhoto: savedToday?.pool1OpeningPhoto ?? "",
-    pool1ClosingPhoto: savedToday?.pool1ClosingPhoto ?? "",
-    pool2OpeningPhoto: savedToday?.pool2OpeningPhoto ?? "",
-    pool2ClosingPhoto: savedToday?.pool2ClosingPhoto ?? "",
-  }));
-  const [closingWebhookUrl, setClosingWebhookUrl] = useState(() => getReportWebhookUrl());
-
-  const hasRequiredClosingInputs =
-    form.pool1OpeningMeter !== "" &&
-    form.pool1ClosingMeter !== "" &&
-    form.pool2OpeningMeter !== "" &&
-    form.pool2ClosingMeter !== "" &&
-    form.cashCounted !== "";
-
-  const calculated = calculateClosing({
-    pool1OpeningMeter: Number(form.pool1OpeningMeter || 0),
-    pool1ClosingMeter: Number(form.pool1ClosingMeter || 0),
-    pool2OpeningMeter: Number(form.pool2OpeningMeter || 0),
-    pool2ClosingMeter: Number(form.pool2ClosingMeter || 0),
-    recordedMeters: dayTotals.recordedMeters,
-    expectedCash: dayTotals.expectedCash,
-    cashCounted: Number(form.cashCounted || 0),
-  });
-
-  const canSave = hasRequiredClosingInputs && calculated.errors.length === 0;
-
-  const setPhoto = (key: keyof typeof form, file?: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((current) => ({ ...current, [key]: String(reader.result) }));
-    reader.readAsDataURL(file);
-  };
-
-  const saveClosing = () => {
-    if (!canSave) return;
-    const closing: DailyClosing = {
-      id: savedToday?.id ?? createId("d"),
-      date: today,
-      pool1OpeningMeter: Number(form.pool1OpeningMeter),
-      pool1ClosingMeter: Number(form.pool1ClosingMeter),
-      pool2OpeningMeter: Number(form.pool2OpeningMeter),
-      pool2ClosingMeter: Number(form.pool2ClosingMeter),
-      pool1ActualMeters: calculated.pool1ActualMeters,
-      pool2ActualMeters: calculated.pool2ActualMeters,
-      actualMeters: calculated.actualMeters,
-      recordedMeters: calculated.recordedMeters,
-      missingMeters: calculated.missingMeters,
-      missingValue: calculated.missingValue,
-      expectedCash: calculated.expectedCash,
-      cashCounted: calculated.cashCounted,
-      cashDifference: calculated.cashDifference,
-      saleCash: dayTotals.saleCash,
-      saleCliq: dayTotals.saleCliq,
-      debtCollected: dayTotals.debtCollected,
-      debtCashCollected: dayTotals.debtCashCollected,
-      debtCliqCollected: dayTotals.debtCliqCollected,
-      salesRevenue: dayTotals.salesRevenue,
-      debtAdded: dayTotals.debtAdded,
-      tankCount: dayTotals.tankCount,
-      pool1OpeningPhoto: form.pool1OpeningPhoto,
-      pool1ClosingPhoto: form.pool1ClosingPhoto,
-      pool2OpeningPhoto: form.pool2OpeningPhoto,
-      pool2ClosingPhoto: form.pool2ClosingPhoto,
-      notes: form.notes,
-    };
-
-    setData((current) => ({
-      ...current,
-      closings: [closing, ...current.closings.filter((item) => item.date !== today)],
-    }));
-    queueDailyReport(closing);
-    onSyncStateChange();
-    syncPendingReports().then(() => onSyncStateChange());
-  };
+  const summaryText = [
+    `ملخص محطة المياه - ${today}`,
+    `عدد التنكات: ${dayTotals.tankCount}`,
+    `إجمالي الأمتار: ${formatMeters(dayTotals.recordedMeters)}`,
+    `قيمة مبيعات اليوم: ${formatJod(dayTotals.salesRevenue)}`,
+    `كاش البيع: ${formatJod(dayTotals.saleCash)}`,
+    `CliQ البيع: ${formatJod(dayTotals.saleCliq)}`,
+    `ديون جديدة اليوم: ${formatJod(dayTotals.debtAdded)}`,
+    `دفعات ديون كاش: ${formatJod(dayTotals.debtCashCollected)}`,
+    `دفعات ديون CliQ: ${formatJod(dayTotals.debtCliqCollected)}`,
+    `إجمالي المقبوض اليوم: ${formatJod(dayTotals.totalCollected)}`,
+    `الكاش المتوقع بالصندوق: ${formatJod(dayTotals.expectedCash)}`,
+    `إجمالي الديون المفتوحة: ${formatJod(totalDebtBalance)}`,
+  ].join("\n");
 
   return (
     <div className="screen-stack closing-screen">
       <section className="panel closing-summary-panel">
         <div className="section-heading spread">
           <div>
-            <h2>قفل أرقام اليوم</h2>
-            <p>ادخل قراءات الصباح والمساء والكاش الموجود. النظام يقارنها مع كل المبيعات والدفعات.</p>
+            <h2>ملخص اليوم</h2>
+            <p>بدون عدادات صباح ومساء — هذه شاشة متابعة مبيعات اليوم والديون والتحصيل فقط.</p>
           </div>
-          <strong className={`closing-badge ${calculated.status}`}>
-            {calculated.status === "balanced" ? "مطابق" : calculated.status === "warning" ? "يوجد فرق" : "يوجد خطأ"}
-          </strong>
+          <button className="primary-lite" onClick={() => navigator.clipboard.writeText(summaryText)}>
+            <Copy size={18} />
+            نسخ الملخص
+          </button>
         </div>
         <div className="stats-grid closing-daily-stats">
-          <StatCard title="مبيعات اليوم" value={formatJod(dayTotals.salesRevenue)} icon={Wallet} />
+          <StatCard title="عدد التنكات" value={String(dayTotals.tankCount)} icon={Truck} />
+          <StatCard title="إجمالي الأمتار" value={formatMeters(dayTotals.recordedMeters)} icon={Droplets} />
+          <StatCard title="قيمة المبيعات" value={formatJod(dayTotals.salesRevenue)} icon={Wallet} />
           <StatCard title="كاش البيع" value={formatJod(dayTotals.saleCash)} icon={Wallet} tone="green" />
-          <StatCard title="CliQ" value={formatJod(dayTotals.saleCliq)} icon={Wallet} tone="green" />
+          <StatCard title="CliQ البيع" value={formatJod(dayTotals.saleCliq)} icon={Wallet} tone="green" />
+          <StatCard title="ديون جديدة" value={formatJod(dayTotals.debtAdded)} icon={AlertTriangle} tone="yellow" />
           <StatCard title="دفعات ديون كاش" value={formatJod(dayTotals.debtCashCollected)} icon={CheckCircle2} tone="green" />
           <StatCard title="دفعات ديون CliQ" value={formatJod(dayTotals.debtCliqCollected)} icon={CheckCircle2} tone="green" />
+          <StatCard title="إجمالي المقبوض" value={formatJod(dayTotals.totalCollected)} icon={Wallet} tone="green" />
           <StatCard title="الكاش المتوقع" value={formatJod(dayTotals.expectedCash)} icon={Gauge} />
-          <StatCard title="ديون جديدة" value={formatJod(dayTotals.debtAdded)} icon={AlertTriangle} tone="yellow" />
-          <StatCard title="عدد التنكات" value={String(dayTotals.tankCount)} icon={Truck} />
+          <StatCard title="إجمالي الديون المفتوحة" value={formatJod(totalDebtBalance)} icon={AlertTriangle} tone="red" />
         </div>
       </section>
 
-      <div className="closing-grid">
-        <MeterCard
-          title="عداد البركة 1"
-          opening={form.pool1OpeningMeter}
-          closing={form.pool1ClosingMeter}
-          usage={calculated.pool1ActualMeters}
-          onOpening={(value) => setForm({ ...form, pool1OpeningMeter: value })}
-          onClosing={(value) => setForm({ ...form, pool1ClosingMeter: value })}
-          onOpeningPhoto={(file) => setPhoto("pool1OpeningPhoto", file)}
-          onClosingPhoto={(file) => setPhoto("pool1ClosingPhoto", file)}
-          openingPhoto={form.pool1OpeningPhoto}
-          closingPhoto={form.pool1ClosingPhoto}
-        />
-        <MeterCard
-          title="عداد البركة 2"
-          opening={form.pool2OpeningMeter}
-          closing={form.pool2ClosingMeter}
-          usage={calculated.pool2ActualMeters}
-          onOpening={(value) => setForm({ ...form, pool2OpeningMeter: value })}
-          onClosing={(value) => setForm({ ...form, pool2ClosingMeter: value })}
-          onOpeningPhoto={(file) => setPhoto("pool2OpeningPhoto", file)}
-          onClosingPhoto={(file) => setPhoto("pool2ClosingPhoto", file)}
-          openingPhoto={form.pool2OpeningPhoto}
-          closingPhoto={form.pool2ClosingPhoto}
-        />
+      <div className="two-column">
+        <section className="panel result-panel">
+          <div className="section-heading spread">
+            <div>
+              <h2>مبيعات اليوم</h2>
+              <p>آخر وأكبر العمليات المسجلة اليوم.</p>
+            </div>
+            <strong>{todaySales.length} عملية</strong>
+          </div>
+          {topSales.length ? (
+            <div className="recent-list">
+              {topSales.map((sale) => (
+                <div key={sale.id}>
+                  <strong>{sale.truckNumber} · {sale.customerName}</strong>
+                  <span>{formatDateTime(sale.createdAt)}</span>
+                  <b>
+                    {formatMeters(sale.meters)} · إجمالي {formatJod(sale.totalAmount)} · كاش {formatJod(sale.cashReceived)} · CliQ {formatJod(sale.cliqReceived ?? 0)} · دين {formatJod(sale.debtAdded)}
+                  </b>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+        </section>
+
+        <section className="panel result-panel">
+          <div className="section-heading spread">
+            <div>
+              <h2>الديون والتحصيل</h2>
+              <p>دفعات اليوم وأعلى أرصدة مفتوحة.</p>
+            </div>
+            <strong>{formatJod(dayTotals.debtCollected)} دفعات اليوم</strong>
+          </div>
+
+          <div className="status-list">
+            {todayPayments.length ? todayPayments.map((payment) => {
+              const customer = customers.find((item) => item.id === payment.customerId);
+              return (
+                <div className="alert success" key={payment.id}>
+                  دفعة {formatJod(payment.amount)} · {arabicPayment(payment.paymentType ?? "cash")} · {customer?.name ?? "عميل"}
+                </div>
+              );
+            }) : <div className="alert warning">لا توجد دفعات ديون اليوم.</div>}
+          </div>
+
+          <h3>أعلى ديون مفتوحة</h3>
+          {customersWithDebt.length ? (
+            <div className="rank-list">
+              {customersWithDebt.map((customer, index) => (
+                <div key={customer.id}>
+                  <span>{index + 1}</span>
+                  <strong>{customer.truckNumbers[0] || customer.name}</strong>
+                  <b>{formatJod(customer.debtBalance)}</b>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="alert success">لا توجد ديون مفتوحة حالياً.</div>
+          )}
+        </section>
       </div>
 
-      <section className="panel result-panel closing-result-panel">
-        <h2>نتيجة الإغلاق</h2>
-        <div className="stats-grid closing-result-stats">
-          <StatCard title="إجمالي العدادين" value={formatMeters(calculated.actualMeters)} icon={Gauge} />
-          <StatCard title="المبيعات المسجلة" value={formatMeters(dayTotals.recordedMeters)} icon={ClipboardList} />
-          <StatCard
-            title="فرق المياه"
-            value={formatMeters(calculated.missingMeters)}
-            icon={AlertTriangle}
-            tone={calculated.missingMeters === 0 ? "green" : "red"}
-          />
-          <StatCard
-            title="فرق الكاش"
-            value={formatJod(calculated.cashDifference)}
-            icon={Wallet}
-            tone={calculated.cashDifference === 0 ? "green" : calculated.cashDifference < 0 ? "red" : "yellow"}
-          />
-        </div>
-
-        <div className="status-list">
-          {!hasRequiredClosingInputs && <div className="alert warning">أكمل قراءات العدادين والكاش الموجود قبل الحفظ.</div>}
-          {calculated.errors.map((item) => (
-            <div className="alert danger" key={item}>{item}</div>
-          ))}
-          {hasRequiredClosingInputs && calculated.warnings.map((item) => (
-            <div className="alert warning" key={item}>{item}</div>
-          ))}
-          {hasRequiredClosingInputs && calculated.status === "balanced" && (
-            <div className="alert success">يوم مطابق: العداد والكاش متطابقان مع السجل</div>
-          )}
-        </div>
-
-        <div className="closing-final-grid">
-          <label>
-            الكاش الموجود فعلياً بالصندوق
-            <input
-              value={form.cashCounted}
-              onChange={(event) => setForm({ ...form, cashCounted: event.target.value })}
-              inputMode="decimal"
-              placeholder={`المفروض: ${formatJod(dayTotals.expectedCash)}`}
-            />
-          </label>
-          <label>
-            ملاحظات / تفسير أي فرق
-            <textarea
-              value={form.notes}
-              onChange={(event) => setForm({ ...form, notes: event.target.value })}
-              placeholder="مثال: تنك نسي الموظف يسجله / كاش تم تحويله CliQ / خطأ قراءة"
-            />
-          </label>
-        </div>
-        <button className="primary-action" onClick={saveClosing} disabled={!canSave}>
-          حفظ وقفل إغلاق اليوم
-        </button>
-        <div className={`sync-status-bar sync-${syncState.status}`}>
-          {syncStatusText(syncState)}
-        </div>
-        {syncState.status === "not-configured" && (
-          <div className="closing-sync-setup">
-            <label>
-              رابط Google Sheet للمزامنة
-              <input
-                value={closingWebhookUrl}
-                onChange={(event) => setClosingWebhookUrl(event.target.value)}
-                placeholder="الصق رابط Google Apps Script هنا مرة واحدة"
-                dir="ltr"
-              />
-            </label>
-            <button
-              className="primary-lite"
-              onClick={() => {
-                saveReportWebhookUrl(closingWebhookUrl);
-                onSyncStateChange();
-              }}
-            >
-              حفظ رابط المزامنة
-            </button>
+      <section className="panel report-panel">
+        <div className="section-heading spread">
+          <div>
+            <h2>نسخة واتساب سريعة</h2>
+            <p>انسخها وارسلها لأي شخص يحتاج ملخص اليوم.</p>
           </div>
-        )}
-        {savedToday && <p className="saved-note">تم حفظ إغلاق لهذا اليوم. الحفظ الجديد يستبدله.</p>}
+          <span className={`sync-status-bar sync-${syncState.status}`}>{syncStatusText(syncState)}</span>
+        </div>
+        <pre>{summaryText}</pre>
       </section>
     </div>
   );
@@ -1826,15 +1719,10 @@ function ManagerReport({
     `إجمالي دفعات الديون: ${formatJod(totals.debtCollected)}`,
     `الكاش المتوقع بالصندوق: ${formatJod(totals.expectedCash)}`,
     `ديون اليوم: ${formatJod(totals.debtAdded)}`,
-    closing
-      ? `العداد: فعلي ${formatMeters(closing.actualMeters)} / فرق مياه ${formatMeters(closing.missingMeters)} / فرق كاش ${formatJod(closing.cashDifference)}`
-      : "لم يتم حفظ إغلاق اليوم بعد",
     "أعلى ديون:",
     ...topCustomers.map((customer, index) => `${index + 1}. ${customer.name}: ${formatJod(customer.debtBalance)}`),
-    closing?.notes ? `ملاحظات: ${closing.notes}` : "ملاحظات: لا يوجد",
-    closing && closing.missingMeters > 0
-      ? "توصية المدير: مراجعة المبيعات غير المسجلة مع الموظف."
-      : "توصية المدير: متابعة التسجيل اليومي بنفس الطريقة.",
+    "ملاحظات: لا يوجد",
+    "توصية المدير: متابعة التسجيل اليومي والديون أولاً، والعدادات لاحقاً إذا احتجناها.",
   ].join("\n");
 
   return (
