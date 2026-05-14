@@ -22,6 +22,14 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  getReportWebhookUrl,
+  getSyncState,
+  queueDailyReport,
+  saveReportWebhookUrl,
+  syncPendingReports,
+} from "./reportSync";
+import type { SyncState } from "./reportSync";
+import {
   LOYAL_TANK_PRICES,
   PRICE_PER_METER,
   calculateClosing,
@@ -133,6 +141,15 @@ function getPlanPrice(meters: number, plan: CustomerPricePlan = "standard") {
   return roundMoney(meters * PRICE_PER_METER);
 }
 
+function syncStatusText(state: SyncState) {
+  if (state.status === "not-configured") return "غير مربوط — أضف رابط Google Sheet";
+  if (state.status === "syncing") return "جاري إرسال التقرير...";
+  if (state.status === "pending") return `بانتظار الإنترنت / تقارير معلقة: ${state.pendingCount}`;
+  if (state.status === "synced") return `تمت المزامنة${state.lastSyncedAt ? `: ${formatDateTime(state.lastSyncedAt)}` : ""}`;
+  if (state.status === "error") return `فشل المزامنة — ${state.lastError || "جرّب مرة أخرى"}`;
+  return state.pendingCount ? `تقارير معلقة: ${state.pendingCount}` : "جاهز للمزامنة";
+}
+
 function StatCard({
   title,
   value,
@@ -164,6 +181,18 @@ function App() {
   const [managerPin, setManagerPin] = useState(() => readManagerPin());
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
+  const [syncState, setSyncState] = useState<SyncState>(() => getSyncState());
+
+  const refreshSyncState = () => setSyncState(getSyncState());
+
+  useEffect(() => {
+    const runSync = () => {
+      syncPendingReports().then(setSyncState).catch(() => setSyncState(getSyncState()));
+    };
+    runSync();
+    window.addEventListener("online", runSync);
+    return () => window.removeEventListener("online", runSync);
+  }, []);
 
   const todaySales = useMemo(() => getTodaySales(data.sales), [data.sales]);
   const latestClosing = data.closings.find((closing) => closing.date === todayKey());
@@ -283,6 +312,8 @@ function App() {
             payments={data.payments}
             closings={data.closings}
             setData={setData}
+            syncState={syncState}
+            onSyncStateChange={refreshSyncState}
           />
         )}
         {view === "debts" && (
@@ -306,6 +337,8 @@ function App() {
             setData={setData}
             resetDemoData={resetDemoData}
             clearData={clearData}
+            syncState={syncState}
+            onSyncStateChange={refreshSyncState}
           />
         )}
       </main>
@@ -336,13 +369,18 @@ function BackupTools({
   setData,
   resetDemoData,
   clearData,
+  syncState,
+  onSyncStateChange,
 }: {
   data: AppData;
   setData: ReturnType<typeof usePersistentData>["setData"];
   resetDemoData: () => void;
   clearData: () => void;
+  syncState: SyncState;
+  onSyncStateChange: () => void;
 }) {
   const [status, setStatus] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState(() => getReportWebhookUrl());
 
   const exportBackup = () => {
     const backup: BackupFile = {
@@ -383,6 +421,37 @@ function BackupTools({
 
   return (
     <section className="data-tools">
+      <div className="sync-tools-card">
+        <strong>مزامنة تقرير الإغلاق مع Google Sheets</strong>
+        <span>{syncStatusText(syncState)}</span>
+        <input
+          value={webhookUrl}
+          onChange={(event) => setWebhookUrl(event.target.value)}
+          placeholder="رابط Google Apps Script Webhook"
+          dir="ltr"
+        />
+        <div className="sync-actions">
+          <button
+            onClick={() => {
+              saveReportWebhookUrl(webhookUrl);
+              onSyncStateChange();
+              setStatus("تم حفظ رابط المزامنة");
+            }}
+          >
+            حفظ رابط المزامنة
+          </button>
+          <button
+            onClick={() => {
+              syncPendingReports().then(() => {
+                onSyncStateChange();
+                setStatus("تمت محاولة المزامنة");
+              });
+            }}
+          >
+            مزامنة الآن
+          </button>
+        </div>
+      </div>
       <button onClick={exportBackup}>
         <Download size={16} />
         تصدير نسخة احتياطية
@@ -1164,11 +1233,15 @@ function ClosingScreen({
   payments,
   closings,
   setData,
+  syncState,
+  onSyncStateChange,
 }: {
   todaySales: Sale[];
   payments: ReturnType<typeof usePersistentData>["data"]["payments"];
   closings: DailyClosing[];
   setData: ReturnType<typeof usePersistentData>["setData"];
+  syncState: SyncState;
+  onSyncStateChange: () => void;
 }) {
   const today = todayKey();
   const todayPayments = getDayPayments(payments, today);
@@ -1190,6 +1263,7 @@ function ClosingScreen({
     pool2OpeningPhoto: savedToday?.pool2OpeningPhoto ?? "",
     pool2ClosingPhoto: savedToday?.pool2ClosingPhoto ?? "",
   }));
+  const [closingWebhookUrl, setClosingWebhookUrl] = useState(() => getReportWebhookUrl());
 
   const hasRequiredClosingInputs =
     form.pool1OpeningMeter !== "" &&
@@ -1254,6 +1328,9 @@ function ClosingScreen({
       ...current,
       closings: [closing, ...current.closings.filter((item) => item.date !== today)],
     }));
+    queueDailyReport(closing);
+    onSyncStateChange();
+    syncPendingReports().then(() => onSyncStateChange());
   };
 
   return (
@@ -1361,6 +1438,31 @@ function ClosingScreen({
         <button className="primary-action" onClick={saveClosing} disabled={!canSave}>
           حفظ وقفل إغلاق اليوم
         </button>
+        <div className={`sync-status-bar sync-${syncState.status}`}>
+          {syncStatusText(syncState)}
+        </div>
+        {syncState.status === "not-configured" && (
+          <div className="closing-sync-setup">
+            <label>
+              رابط Google Sheet للمزامنة
+              <input
+                value={closingWebhookUrl}
+                onChange={(event) => setClosingWebhookUrl(event.target.value)}
+                placeholder="الصق رابط Google Apps Script هنا مرة واحدة"
+                dir="ltr"
+              />
+            </label>
+            <button
+              className="primary-lite"
+              onClick={() => {
+                saveReportWebhookUrl(closingWebhookUrl);
+                onSyncStateChange();
+              }}
+            >
+              حفظ رابط المزامنة
+            </button>
+          </div>
+        )}
         {savedToday && <p className="saved-note">تم حفظ إغلاق لهذا اليوم. الحفظ الجديد يستبدله.</p>}
       </section>
     </div>

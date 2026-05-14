@@ -20,7 +20,7 @@ if ("serviceWorker" in navigator) {
     });
 
     navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js?v=local-manager-pin-v12`)
+      .register(`${import.meta.env.BASE_URL}sw.js?v=google-sheet-sync-v13`)
       .then((registration) => registration.update())
       .catch(() => {
         // The app still works without offline caching; registration can fail on non-secure LAN URLs.

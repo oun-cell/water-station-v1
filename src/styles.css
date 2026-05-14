@@ -1180,6 +1180,77 @@ tr.deleted {
   font-weight: 800;
 }
 
+.sync-tools-card {
+  display: grid;
+  gap: 8px;
+  min-width: min(100%, 520px);
+  padding: 12px;
+  border: 1px solid rgba(148, 227, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(8, 47, 73, 0.7);
+}
+
+.sync-tools-card strong {
+  color: #e6f7ff;
+}
+
+.sync-tools-card input {
+  min-height: 44px;
+}
+
+.sync-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sync-status-bar {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 900;
+  text-align: center;
+  color: #0f172a;
+  background: #e0f2fe;
+  border: 2px solid #7dd3fc;
+}
+
+.sync-synced,
+.sync-idle {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.sync-pending,
+.sync-not-configured {
+  background: #fef3c7;
+  border-color: #facc15;
+}
+
+.sync-error {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.closing-sync-setup {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 2px dashed #93c5fd;
+}
+
+.closing-sync-setup label {
+  margin-top: 0;
+}
+
+.closing-sync-setup .primary-lite {
+  min-height: 44px;
+}
+
 .bottom-nav {
   display: none;
 }

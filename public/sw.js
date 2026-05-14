@@ -1,4 +1,4 @@
-const CACHE_NAME = "water-station-v1-local-manager-pin-v12";
+const CACHE_NAME = "water-station-v1-google-sheet-sync-v13";
 const APP_SHELL = ["./", "./manifest.webmanifest", "./generated/app-concept.png"];
 
 self.addEventListener("install", (event) => {
