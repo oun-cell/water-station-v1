@@ -49,6 +49,24 @@ describe("water station business rules", () => {
     });
   });
 
+  it("uses per-customer custom prices before standard or loyal prices", () => {
+    expect(calculateSalePayment(8, "cash", undefined, "standard", { 8: 4 })).toEqual({
+      pricePerMeter: 0.5,
+      totalAmount: 4,
+      cashReceived: 4,
+      cliqReceived: 0,
+      debtAdded: 0,
+    });
+
+    expect(calculateSalePayment(14, "cliq", undefined, "loyal", { 14: 12 })).toEqual({
+      pricePerMeter: 12 / 14,
+      totalAmount: 12,
+      cashReceived: 0,
+      cliqReceived: 12,
+      debtAdded: 0,
+    });
+  });
+
 
 
   it("uses Oun's special pricing table for 1, 2, 9, 14, and 16 meters", () => {

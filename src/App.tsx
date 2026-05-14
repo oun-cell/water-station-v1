@@ -133,12 +133,30 @@ function arabicPricePlan(plan: CustomerPricePlan = "standard") {
   return plan === "loyal" ? "سعر مميز" : "سعر عادي";
 }
 
-function getPlanPrice(meters: number, plan: CustomerPricePlan = "standard") {
+function getPlanPrice(
+  meters: number,
+  plan: CustomerPricePlan = "standard",
+  customTankPrices: Record<number, number> = {},
+) {
+  if (customTankPrices[meters] !== undefined) {
+    return customTankPrices[meters];
+  }
   if (plan === "loyal" && LOYAL_TANK_PRICES[meters] !== undefined) {
     return LOYAL_TANK_PRICES[meters];
   }
 
   return roundMoney(meters * PRICE_PER_METER);
+}
+
+function formatCustomPrices(customTankPrices: Record<number, number> = {}) {
+  const entries = Object.entries(customTankPrices)
+    .map(([meters, price]) => [Number(meters), price] as const)
+    .filter(([meters, price]) => Number.isFinite(meters) && Number.isFinite(Number(price)))
+    .sort((a, b) => a[0] - b[0]);
+
+  return entries.length
+    ? entries.map(([meters, price]) => `${meters}م = ${formatJod(Number(price))}`).join("، ")
+    : "لا يوجد سعر خاص";
 }
 
 function syncStatusText(state: SyncState) {
@@ -489,6 +507,8 @@ function SaleScreen({
   const [oldDebtPaymentType, setOldDebtPaymentType] = useState<PaymentMethod>("cash");
   const [notes, setNotes] = useState("");
   const [phone, setPhone] = useState("");
+  const [customMeters, setCustomMeters] = useState("");
+  const [customPrice, setCustomPrice] = useState("");
   const [newCustomerPricePlan, setNewCustomerPricePlan] =
     useState<CustomerPricePlan>("standard");
   const [success, setSuccess] = useState<Sale | null>(null);
@@ -510,6 +530,7 @@ function SaleScreen({
   const numericMeters = Number(meters);
   const activePricePlan: CustomerPricePlan =
     selectedCustomer?.pricePlan ?? (customerMode === "new" ? newCustomerPricePlan : "standard");
+  const activeCustomPrices = selectedCustomer?.customTankPrices ?? {};
   const lastSale = selectedCustomer
     ? data.sales
         .filter((sale) => sale.customerId === selectedCustomer.id && !sale.deleted)
@@ -531,17 +552,18 @@ function SaleScreen({
         paymentType,
         paymentType === "partial" ? Number(cashReceived || 0) : undefined,
         activePricePlan,
+        activeCustomPrices,
       );
     } catch {
       return null;
     }
-  }, [activePricePlan, cashReceived, numericMeters, paymentType]);
+  }, [activeCustomPrices, activePricePlan, cashReceived, numericMeters, paymentType]);
 
   useEffect(() => {
     if ((paymentType === "cash" || paymentType === "cliq") && numericMeters > 0) {
-      setCashReceived(String(getPlanPrice(numericMeters, activePricePlan)));
+      setCashReceived(String(getPlanPrice(numericMeters, activePricePlan, activeCustomPrices)));
     }
-  }, [activePricePlan, numericMeters, paymentType]);
+  }, [activeCustomPrices, activePricePlan, numericMeters, paymentType]);
 
   const chooseCustomer = (customer: Customer) => {
     const primaryTruck = normalizeTruckNumber(customer.truckNumbers[0] ?? "");
@@ -552,6 +574,8 @@ function SaleScreen({
     setTruckNumber(primaryTruck);
     setPhone(customer.phone);
     setNewCustomerPricePlan(customer.pricePlan ?? "standard");
+    setCustomMeters("");
+    setCustomPrice("");
   };
 
   const startNewCustomer = () => {
@@ -562,6 +586,8 @@ function SaleScreen({
     setTruckNumber("");
     setPhone("");
     setNewCustomerPricePlan("standard");
+    setCustomMeters("");
+    setCustomPrice("");
     setSuccess(null);
     setLastReceipt("");
     setError("");
@@ -575,6 +601,8 @@ function SaleScreen({
     setTruckNumber("");
     setPhone("");
     setNewCustomerPricePlan("standard");
+    setCustomMeters("");
+    setCustomPrice("");
     setSuccess(null);
     setLastReceipt("");
     setError("");
@@ -582,7 +610,7 @@ function SaleScreen({
 
   const updatePaymentType = (type: PaymentType) => {
     setPaymentType(type);
-    const amount = getPlanPrice(Number(meters || 0), activePricePlan);
+    const amount = getPlanPrice(Number(meters || 0), activePricePlan, activeCustomPrices);
     setCashReceived(type === "cash" || type === "cliq" ? String(amount) : type === "debt" ? "0" : "");
     if (type === "cliq") setOldDebtPaymentType("cliq");
     if (type === "cash") setOldDebtPaymentType("cash");
@@ -594,6 +622,46 @@ function SaleScreen({
       ...data,
       customers: data.customers.map((customer) =>
         customer.id === selectedCustomer.id ? { ...customer, pricePlan } : customer,
+      ),
+    });
+  };
+
+  const saveSelectedCustomerCustomPrice = () => {
+    if (!selectedCustomer) return;
+    setError("");
+    const metersKey = Number(customMeters);
+    const priceValue = Number(customPrice);
+    if (!Number.isFinite(metersKey) || metersKey <= 0 || !Number.isInteger(metersKey)) {
+      setError("أدخل عدد أمتار صحيح للسعر الخاص");
+      return;
+    }
+    if (!Number.isFinite(priceValue) || priceValue < 0) {
+      setError("أدخل سعر خاص صحيح");
+      return;
+    }
+
+    const nextPrices = {
+      ...(selectedCustomer.customTankPrices ?? {}),
+      [metersKey]: roundMoney(priceValue),
+    };
+    setData({
+      ...data,
+      customers: data.customers.map((customer) =>
+        customer.id === selectedCustomer.id ? { ...customer, customTankPrices: nextPrices } : customer,
+      ),
+    });
+    setCustomMeters("");
+    setCustomPrice("");
+  };
+
+  const removeSelectedCustomerCustomPrice = (metersKey: number) => {
+    if (!selectedCustomer) return;
+    const nextPrices = { ...(selectedCustomer.customTankPrices ?? {}) };
+    delete nextPrices[metersKey];
+    setData({
+      ...data,
+      customers: data.customers.map((customer) =>
+        customer.id === selectedCustomer.id ? { ...customer, customTankPrices: nextPrices } : customer,
       ),
     });
   };
@@ -664,6 +732,7 @@ function SaleScreen({
         paymentType,
         paymentType === "partial" ? Number(cashReceived || 0) : undefined,
         activePricePlan,
+        activeCustomPrices,
       );
 
       let customerId = selectedCustomerId;
@@ -681,6 +750,7 @@ function SaleScreen({
             debtBalance: 0,
             creditLimit: 50,
             pricePlan: newCustomerPricePlan,
+            customTankPrices: {},
             createdAt: now,
             status: "good",
           },
@@ -714,6 +784,7 @@ function SaleScreen({
         meters: amountMeters,
         pricePerMeter: calculation.pricePerMeter,
         pricePlan: activePricePlan,
+        customPriceApplied: activeCustomPrices[amountMeters] !== undefined,
         totalAmount: calculation.totalAmount,
         paymentType,
         cashReceived: calculation.cashReceived,
@@ -949,6 +1020,40 @@ function SaleScreen({
                 <strong>{lastPayment ? formatJod(lastPayment.amount) : "لا يوجد"}</strong>
               </span>
             </div>
+            <section className="debt-payment-box custom-price-box">
+              <div>
+                <strong>أسعار خاصة لهذا العميل</strong>
+                <span>{formatCustomPrices(selectedCustomer.customTankPrices)}</span>
+              </div>
+              <div className="field-row">
+                <label>
+                  الأمتار
+                  <input
+                    value={customMeters}
+                    onChange={(event) => setCustomMeters(event.target.value.replace(/\D/g, ""))}
+                    inputMode="numeric"
+                    placeholder="مثال: 8"
+                  />
+                </label>
+                <label>
+                  السعر JOD
+                  <input
+                    value={customPrice}
+                    onChange={(event) => setCustomPrice(event.target.value)}
+                    inputMode="decimal"
+                    placeholder="مثال: 4"
+                  />
+                </label>
+              </div>
+              <div className="quick-grid secondary">
+                <button onClick={saveSelectedCustomerCustomPrice}>حفظ السعر الخاص</button>
+                {Object.keys(selectedCustomer.customTankPrices ?? {}).map((metersKey) => (
+                  <button key={metersKey} onClick={() => removeSelectedCustomerCustomPrice(Number(metersKey))}>
+                    حذف {metersKey}م
+                  </button>
+                ))}
+              </div>
+            </section>
             {selectedCustomer.debtBalance > selectedCustomer.creditLimit && (
               <div className="health-warning">العميل فوق حد الائتمان</div>
             )}
@@ -973,7 +1078,7 @@ function SaleScreen({
               setMeters(event.target.value);
               if (paymentType === "cash" || paymentType === "cliq") {
                 setCashReceived(
-                  String(getPlanPrice(Number(event.target.value || 0), activePricePlan)),
+                  String(getPlanPrice(Number(event.target.value || 0), activePricePlan, activeCustomPrices)),
                 );
               }
             }}
@@ -990,7 +1095,7 @@ function SaleScreen({
               onClick={() => {
                 setMeters(String(value));
                 if (paymentType === "cash" || paymentType === "cliq") {
-                  setCashReceived(String(getPlanPrice(value, activePricePlan)));
+                  setCashReceived(String(getPlanPrice(value, activePricePlan, activeCustomPrices)));
                 }
               }}
             >
@@ -1079,10 +1184,11 @@ function SaleScreen({
           <h3>ملخص البيع</h3>
           <div className="preview-number">{preview ? formatMeters(numericMeters) : "0 متر"}</div>
           <p className="price-plan-note">
-            {arabicPricePlan(activePricePlan)}
-            {activePricePlan === "loyal" && LOYAL_TANK_PRICES[numericMeters] !== undefined
-              ? ` · السعر ${formatJod(LOYAL_TANK_PRICES[numericMeters])}`
-              : ""}
+            {activeCustomPrices[numericMeters] !== undefined
+              ? `سعر خاص · ${formatJod(activeCustomPrices[numericMeters])}`
+              : activePricePlan === "loyal" && LOYAL_TANK_PRICES[numericMeters] !== undefined
+                ? `${arabicPricePlan(activePricePlan)} · السعر ${formatJod(LOYAL_TANK_PRICES[numericMeters])}`
+                : arabicPricePlan(activePricePlan)}
           </p>
           <dl>
             <div>
@@ -1444,6 +1550,7 @@ function buildCustomerStatement(customer: Customer, sales: Sale[], payments: App
     `الهاتف: ${customer.phone || "لا يوجد"}`,
     `أرقام التنكات: ${customer.truckNumbers.join("، ") || "لا يوجد"}`,
     `نوع السعر: ${arabicPricePlan(customer.pricePlan)}`,
+    `أسعار خاصة: ${formatCustomPrices(customer.customTankPrices)}`,
     `حد الائتمان: ${formatJod(customer.creditLimit)}`,
     `الرصيد الحالي: ${formatJod(customer.debtBalance)}`,
     "------------------------------",

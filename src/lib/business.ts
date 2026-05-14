@@ -1,4 +1,4 @@
-import type { CustomerPricePlan, CustomerStatus, Payment, PaymentType, Sale } from "../types";
+import type { CustomTankPrices, CustomerPricePlan, CustomerStatus, Payment, PaymentType, Sale } from "../types";
 
 export const PRICE_PER_METER = 1;
 export const PRODUCTION_RATE_PER_HOUR = 20;
@@ -54,16 +54,20 @@ export function calculateSalePayment(
   paymentType: PaymentType,
   enteredCash?: number,
   pricePlan: CustomerPricePlan = "standard",
+  customTankPrices: CustomTankPrices = {},
 ): SalePaymentCalculation {
   if (!isValidNumber(meters) || meters <= 0) {
     throw new Error("Requested meters must be greater than zero.");
   }
 
+  const customPrice = customTankPrices[meters];
   const loyalPrice = LOYAL_TANK_PRICES[meters];
   const totalAmount = roundMoney(
-    pricePlan === "loyal" && loyalPrice !== undefined
-      ? loyalPrice
-      : meters * PRICE_PER_METER,
+    customPrice !== undefined
+      ? customPrice
+      : pricePlan === "loyal" && loyalPrice !== undefined
+        ? loyalPrice
+        : meters * PRICE_PER_METER,
   );
   const cashReceived =
     paymentType === "cash"

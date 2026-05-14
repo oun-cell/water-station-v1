@@ -2,6 +2,7 @@ export type PaymentType = "cash" | "cliq" | "debt" | "partial";
 export type PaymentMethod = "cash" | "cliq";
 export type CustomerStatus = "good" | "needs-payment" | "blocked";
 export type CustomerPricePlan = "standard" | "loyal";
+export type CustomTankPrices = Record<number, number>;
 
 export type Sale = {
   id: string;
@@ -12,6 +13,7 @@ export type Sale = {
   meters: number;
   pricePerMeter: number;
   pricePlan?: CustomerPricePlan;
+  customPriceApplied?: boolean;
   totalAmount: number;
   paymentType: PaymentType;
   cashReceived: number;
@@ -31,6 +33,7 @@ export type Customer = {
   debtBalance: number;
   creditLimit: number;
   pricePlan?: CustomerPricePlan;
+  customTankPrices?: CustomTankPrices;
   createdAt: string;
   lastSaleAt?: string;
   lastPaymentAt?: string;
