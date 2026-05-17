@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles.css";
 
-const DATA_RESET_VERSION = "clear-all-data-2026-05-14-v1";
+const DATA_RESET_VERSION = "clear-all-data-2026-05-17-v2";
 const DATA_RESET_FLAG_KEY = "water-station-data-reset-version";
 const EMPTY_APP_DATA = JSON.stringify({ customers: [], sales: [], payments: [], closings: [] });
 
@@ -36,7 +36,7 @@ if ("serviceWorker" in navigator) {
     });
 
     navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js?v=clean-pricing-reset-v17`)
+      .register(`${import.meta.env.BASE_URL}sw.js?v=clear-all-data-v18`)
       .then((registration) => registration.update())
       .catch(() => {
         // The app still works without offline caching; registration can fail on non-secure LAN URLs.
