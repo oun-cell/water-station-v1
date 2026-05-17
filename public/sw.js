@@ -1,4 +1,4 @@
-const CACHE_NAME = "water-station-v1-custom-pricing-v16";
+const CACHE_NAME = "water-station-v1-clean-pricing-reset-v17";
 const APP_SHELL = ["./", "./manifest.webmanifest", "./generated/app-concept.png"];
 
 self.addEventListener("install", (event) => {

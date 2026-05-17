@@ -20,7 +20,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getReportWebhookUrl,
   getSyncState,
@@ -509,6 +509,8 @@ function SaleScreen({
   const [phone, setPhone] = useState("");
   const [customMeters, setCustomMeters] = useState("");
   const [customPrice, setCustomPrice] = useState("");
+  const [isPriceEditorOpen, setIsPriceEditorOpen] = useState(false);
+  const salePanelTopRef = useRef<HTMLDivElement | null>(null);
   const [newCustomerPricePlan, setNewCustomerPricePlan] =
     useState<CustomerPricePlan>("standard");
   const [success, setSuccess] = useState<Sale | null>(null);
@@ -576,6 +578,7 @@ function SaleScreen({
     setNewCustomerPricePlan(customer.pricePlan ?? "standard");
     setCustomMeters("");
     setCustomPrice("");
+    setIsPriceEditorOpen(false);
   };
 
   const startNewCustomer = () => {
@@ -588,6 +591,7 @@ function SaleScreen({
     setNewCustomerPricePlan("standard");
     setCustomMeters("");
     setCustomPrice("");
+    setIsPriceEditorOpen(false);
     setSuccess(null);
     setLastReceipt("");
     setError("");
@@ -603,6 +607,7 @@ function SaleScreen({
     setNewCustomerPricePlan("standard");
     setCustomMeters("");
     setCustomPrice("");
+    setIsPriceEditorOpen(false);
     setSuccess(null);
     setLastReceipt("");
     setError("");
@@ -652,6 +657,7 @@ function SaleScreen({
     });
     setCustomMeters("");
     setCustomPrice("");
+    setIsPriceEditorOpen(false);
   };
 
   const removeSelectedCustomerCustomPrice = (metersKey: number) => {
@@ -820,12 +826,23 @@ function SaleScreen({
       const updatedCustomer = customers.find((customer) => customer.id === customerId);
       setSuccess(sale);
       setLastReceipt(buildReceipt(sale, oldDebtPaymentAmount, oldDebtPaymentType, updatedCustomer?.debtBalance ?? 0));
+      setSelectedCustomerId("");
+      setQuery("");
+      setNewCustomerName("");
+      setTruckNumber("");
+      setPhone("");
+      setCustomMeters("");
+      setCustomPrice("");
+      setIsPriceEditorOpen(false);
       setMeters("12");
       setPaymentType("cash");
       setCashReceived("12");
       setOldDebtPayment("");
       setOldDebtPaymentType("cash");
       setNotes("");
+      window.setTimeout(() => {
+        salePanelTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر تسجيل البيع");
     }
@@ -966,7 +983,7 @@ function SaleScreen({
       </aside>
 
       <section className="panel sale-panel">
-        <div className="section-heading sale-title">
+        <div ref={salePanelTopRef} className="section-heading sale-title">
           <span className="title-icon">
             <Truck size={30} />
           </span>
@@ -975,6 +992,32 @@ function SaleScreen({
             <p>أدخل عدد الأمتار يدوياً ثم اختر طريقة الدفع.</p>
           </div>
         </div>
+
+        {success && (
+          <section className="success-card success-card-top">
+            <CheckCircle2 size={34} />
+            <h3>تم تسجيل البيع</h3>
+            <p>{success.customerName}</p>
+            <strong>
+              {formatMeters(success.meters)} · {formatJod(success.totalAmount)}
+            </strong>
+            <span>
+              كاش {formatJod(success.cashReceived)} | CliQ {formatJod(success.cliqReceived ?? 0)} | دين {formatJod(success.debtAdded)}
+            </span>
+            {lastReceipt && (
+              <div className="receipt-box">
+                <div className="receipt-actions">
+                  <strong>إيصال البيع</strong>
+                  <button className="primary-lite" onClick={() => navigator.clipboard.writeText(lastReceipt)}>
+                    <Copy size={16} />
+                    نسخ الإيصال
+                  </button>
+                </div>
+                <pre>{lastReceipt}</pre>
+              </div>
+            )}
+          </section>
+        )}
 
         {selectedCustomer ? (
           <section
@@ -1020,39 +1063,48 @@ function SaleScreen({
                 <strong>{lastPayment ? formatJod(lastPayment.amount) : "لا يوجد"}</strong>
               </span>
             </div>
-            <section className="debt-payment-box custom-price-box">
-              <div>
-                <strong>أسعار خاصة لهذا العميل</strong>
-                <span>{formatCustomPrices(selectedCustomer.customTankPrices)}</span>
+            <section className={`custom-price-compact ${isPriceEditorOpen ? "open" : ""}`}>
+              <div className="custom-price-summary">
+                <div>
+                  <strong>السعر الخاص</strong>
+                  <span>{formatCustomPrices(selectedCustomer.customTankPrices)}</span>
+                </div>
+                <button onClick={() => setIsPriceEditorOpen((open) => !open)}>
+                  {isPriceEditorOpen ? "إغلاق" : "إدارة"}
+                </button>
               </div>
-              <div className="field-row">
-                <label>
-                  الأمتار
-                  <input
-                    value={customMeters}
-                    onChange={(event) => setCustomMeters(event.target.value.replace(/\D/g, ""))}
-                    inputMode="numeric"
-                    placeholder="مثال: 8"
-                  />
-                </label>
-                <label>
-                  السعر JOD
-                  <input
-                    value={customPrice}
-                    onChange={(event) => setCustomPrice(event.target.value)}
-                    inputMode="decimal"
-                    placeholder="مثال: 4"
-                  />
-                </label>
-              </div>
-              <div className="quick-grid secondary">
-                <button onClick={saveSelectedCustomerCustomPrice}>حفظ السعر الخاص</button>
-                {Object.keys(selectedCustomer.customTankPrices ?? {}).map((metersKey) => (
-                  <button key={metersKey} onClick={() => removeSelectedCustomerCustomPrice(Number(metersKey))}>
-                    حذف {metersKey}م
-                  </button>
-                ))}
-              </div>
+              {isPriceEditorOpen && (
+                <div className="custom-price-editor">
+                  <div className="field-row">
+                    <label>
+                      الأمتار
+                      <input
+                        value={customMeters}
+                        onChange={(event) => setCustomMeters(event.target.value.replace(/\D/g, ""))}
+                        inputMode="numeric"
+                        placeholder="8"
+                      />
+                    </label>
+                    <label>
+                      السعر JOD
+                      <input
+                        value={customPrice}
+                        onChange={(event) => setCustomPrice(event.target.value)}
+                        inputMode="decimal"
+                        placeholder="4"
+                      />
+                    </label>
+                  </div>
+                  <div className="custom-price-actions">
+                    <button className="primary-lite" onClick={saveSelectedCustomerCustomPrice}>حفظ</button>
+                    {Object.keys(selectedCustomer.customTankPrices ?? {}).map((metersKey) => (
+                      <button key={metersKey} onClick={() => removeSelectedCustomerCustomPrice(Number(metersKey))}>
+                        حذف {metersKey}م
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
             {selectedCustomer.debtBalance > selectedCustomer.creditLimit && (
               <div className="health-warning">العميل فوق حد الائتمان</div>
@@ -1209,32 +1261,6 @@ function SaleScreen({
             </div>
           </dl>
         </section>
-
-        {success && (
-          <section className="success-card">
-            <CheckCircle2 size={34} />
-            <h3>تم تسجيل البيع</h3>
-            <p>{success.customerName}</p>
-            <strong>
-              {formatMeters(success.meters)} · {formatJod(success.totalAmount)}
-            </strong>
-            <span>
-              كاش {formatJod(success.cashReceived)} | CliQ {formatJod(success.cliqReceived ?? 0)} | دين {formatJod(success.debtAdded)}
-            </span>
-            {lastReceipt && (
-              <div className="receipt-box">
-                <div className="receipt-actions">
-                  <strong>إيصال البيع</strong>
-                  <button className="primary-lite" onClick={() => navigator.clipboard.writeText(lastReceipt)}>
-                    <Copy size={16} />
-                    نسخ الإيصال
-                  </button>
-                </div>
-                <pre>{lastReceipt}</pre>
-              </div>
-            )}
-          </section>
-        )}
 
         <section className="today-mini-control">
           <h3>سيطرة اليوم</h3>

@@ -892,6 +892,55 @@ label {
   font-weight: 900;
 }
 
+.custom-price-compact {
+  border: 1px solid rgba(148, 227, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(4, 17, 31, 0.24);
+  overflow: hidden;
+}
+
+.custom-price-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.custom-price-summary strong,
+.custom-price-summary span {
+  display: block;
+}
+
+.custom-price-summary span {
+  color: #b9e7f4;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.custom-price-summary button,
+.custom-price-actions button {
+  min-height: 38px;
+  border: 1px solid rgba(148, 227, 255, 0.24);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #dff8ff;
+  background: rgba(4, 17, 31, 0.42);
+  font-weight: 900;
+}
+
+.custom-price-editor {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.custom-price-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .price-plan-note {
   color: #b9e7f4;
   font-weight: 900;
@@ -972,6 +1021,12 @@ dl div {
   border-radius: 8px;
   color: #064e3b;
   background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+}
+
+.success-card-top {
+  margin-bottom: 14px;
+  border: 2px solid #22c55e;
+  box-shadow: 0 14px 32px rgba(34, 197, 94, 0.18);
 }
 
 
@@ -1883,6 +1938,30 @@ tr.deleted {
   .health-grid strong,
   .today-mini-control strong {
     color: #0f172a;
+  }
+
+  .custom-price-compact {
+    border-color: #dbe7f0;
+    background: #ffffff;
+  }
+
+  .custom-price-summary {
+    padding: 8px 10px;
+  }
+
+  .custom-price-summary span {
+    color: #475569;
+  }
+
+  .custom-price-summary button,
+  .custom-price-actions button {
+    color: #0f172a;
+    background: #f8fafc;
+    border: 2px solid #cbd5e1;
+  }
+
+  .custom-price-editor {
+    padding: 0 10px 10px;
   }
 
   .meters-input {
