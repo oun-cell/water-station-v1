@@ -209,7 +209,7 @@ function App() {
   const latestClosing = data.closings.find((closing) => closing.date === todayKey());
 
   const syncLatestData = () => {
-    if (getReportWebhookUrl()) queueLiveDailyReport(data.sales, data.payments);
+    if (getReportWebhookUrl()) queueLiveDailyReport(data.sales, data.payments, data.customers);
     return syncPendingReports().then(setSyncState).catch(() => setSyncState(getSyncState()));
   };
 
@@ -225,7 +225,7 @@ function App() {
       window.removeEventListener("focus", syncLatestData);
       document.removeEventListener("visibilitychange", syncLatestData);
     };
-  }, [data.sales, data.payments]);
+  }, [data.sales, data.payments, data.customers]);
 
   const openView = (next: View) => {
     const item = navItems.find((nav) => nav.view === next);
@@ -462,7 +462,7 @@ function BackupTools({
           <button
             onClick={() => {
               saveReportWebhookUrl(webhookUrl);
-              const queued = queueLiveDailyReport(data.sales, data.payments);
+              const queued = queueLiveDailyReport(data.sales, data.payments, data.customers);
               onSyncStateChange();
               if (queued) {
                 syncPendingReports().then(() => onSyncStateChange());
@@ -476,7 +476,7 @@ function BackupTools({
           </button>
           <button
             onClick={() => {
-              queueLiveDailyReport(data.sales, data.payments);
+              queueLiveDailyReport(data.sales, data.payments, data.customers);
               onSyncStateChange();
               syncPendingReports().then(() => {
                 onSyncStateChange();
@@ -1621,6 +1621,110 @@ function DebtLedger({
     ? buildCustomerStatement(selected, data.sales, data.payments)
     : "";
 
+  const editSelectedCustomer = () => {
+    if (!selected) return;
+    const name = window.prompt("اسم العميل", selected.name)?.trim();
+    if (!name) return;
+    const phone = window.prompt("رقم الهاتف", selected.phone)?.trim() ?? "";
+    const trucksText = window.prompt("أرقام التنكات/السيارات - افصل بينها بفاصلة", selected.truckNumbers.join(", "));
+    if (trucksText === null) return;
+    const truckNumbers = trucksText
+      .split(/[,،\n]/)
+      .map((truck) => normalizeTruckNumber(truck))
+      .filter(Boolean);
+    if (!truckNumbers.length) {
+      window.alert("لازم يكون للعميل رقم تنك/سيارة واحد على الأقل");
+      return;
+    }
+    const creditLimitText = window.prompt("حد الدين", String(selected.creditLimit));
+    if (creditLimitText === null) return;
+    const creditLimit = Number(creditLimitText);
+    if (!Number.isFinite(creditLimit) || creditLimit < 0) {
+      window.alert("حد الدين غير صحيح");
+      return;
+    }
+
+    setData((current) => ({
+      ...current,
+      customers: current.customers.map((customer) =>
+        customer.id === selected.id
+          ? {
+              ...customer,
+              name,
+              phone,
+              truckNumbers,
+              creditLimit,
+              status: deriveCustomerStatus(customer.debtBalance, creditLimit),
+            }
+          : customer,
+      ),
+      sales: current.sales.map((sale) =>
+        sale.customerId === selected.id ? { ...sale, customerName: name } : sale,
+      ),
+    }));
+  };
+
+  const deleteSelectedCustomer = () => {
+    if (!selected) return;
+    const hasHistory = data.sales.some((sale) => sale.customerId === selected.id) || data.payments.some((payment) => payment.customerId === selected.id);
+    if (hasHistory) {
+      window.alert("هذا العميل لديه مبيعات أو دفعات. استخدم دمج المكرر حتى لا تضيع الأرقام.");
+      return;
+    }
+    if (!window.confirm(`حذف العميل ${selected.name} نهائياً؟`)) return;
+    const nextCustomers = data.customers.filter((customer) => customer.id !== selected.id);
+    setData((current) => ({
+      ...current,
+      customers: current.customers.filter((customer) => customer.id !== selected.id),
+    }));
+    setSelectedId(nextCustomers[0]?.id ?? "");
+  };
+
+  const mergeSelectedCustomer = () => {
+    if (!selected) return;
+    const destinationText = window.prompt("اكتب رقم تنك/سيارة أو اسم العميل الصحيح لدمج هذا المكرر معه");
+    if (!destinationText) return;
+    const normalizedDestination = normalizeTruckNumber(destinationText);
+    const destination = data.customers.find((customer) =>
+      customer.id !== selected.id &&
+      (customer.name.includes(destinationText.trim()) || customer.truckNumbers.some((truck) => normalizeTruckNumber(truck) === normalizedDestination)),
+    );
+    if (!destination) {
+      window.alert("لم أجد العميل الصحيح. افتح العميل الصحيح وانسخ رقمه/اسمه ثم جرّب مرة ثانية.");
+      return;
+    }
+    if (!window.confirm(`دمج ${selected.name} داخل ${destination.name} وحذف المكرر؟`)) return;
+
+    const mergedTrucks = Array.from(new Set([...destination.truckNumbers, ...selected.truckNumbers].map(normalizeTruckNumber).filter(Boolean)));
+    const mergedDebt = roundMoney(destination.debtBalance + selected.debtBalance);
+    setData((current) => ({
+      ...current,
+      customers: current.customers
+        .filter((customer) => customer.id !== selected.id)
+        .map((customer) =>
+          customer.id === destination.id
+            ? {
+                ...customer,
+                truckNumbers: mergedTrucks,
+                debtBalance: mergedDebt,
+                status: deriveCustomerStatus(mergedDebt, customer.creditLimit),
+                lastSaleAt: customer.lastSaleAt || selected.lastSaleAt,
+                lastPaymentAt: customer.lastPaymentAt || selected.lastPaymentAt,
+              }
+            : customer,
+        ),
+      sales: current.sales.map((sale) =>
+        sale.customerId === selected.id
+          ? { ...sale, customerId: destination.id, customerName: destination.name }
+          : sale,
+      ),
+      payments: current.payments.map((payment) =>
+        payment.customerId === selected.id ? { ...payment, customerId: destination.id } : payment,
+      ),
+    }));
+    setSelectedId(destination.id);
+  };
+
   const recordPayment = () => {
     setError("");
     if (!selected) return;
@@ -1676,11 +1780,18 @@ function DebtLedger({
       <section className="panel">
         {selected ? (
           <>
-            <div className="section-heading">
-              <Users size={26} />
-              <div>
-                <h2>{selected.name}</h2>
-                <p>{selected.phone || "لا يوجد هاتف"}</p>
+            <div className="section-heading spread">
+              <div className="section-heading">
+                <Users size={26} />
+                <div>
+                  <h2>{selected.name}</h2>
+                  <p>{selected.phone || "لا يوجد هاتف"}</p>
+                </div>
+              </div>
+              <div className="history-actions">
+                <button className="icon-button correction-button" onClick={editSelectedCustomer}>تعديل العميل</button>
+                <button className="icon-button correction-button" onClick={mergeSelectedCustomer}>دمج مكرر</button>
+                <button className="icon-button danger-text" onClick={deleteSelectedCustomer}>حذف العميل</button>
               </div>
             </div>
             <div className="stats-grid compact">

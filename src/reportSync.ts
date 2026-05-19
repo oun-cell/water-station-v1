@@ -1,5 +1,5 @@
 import { calculateDayTotals, dayKeyFromIso, todayKey } from "./lib/business";
-import type { DailyClosing, Payment, Sale } from "./types";
+import type { Customer, DailyClosing, Payment, Sale } from "./types";
 
 const WEBHOOK_KEY = "water-station-report-webhook-url";
 const PENDING_KEY = "water-station-pending-reports-v1";
@@ -39,6 +39,7 @@ export type DailyReportPayload = {
   notes: string;
   sales?: Sale[];
   payments?: Payment[];
+  customers?: Customer[];
 };
 
 export type SyncState = {
@@ -145,12 +146,13 @@ export function buildLiveDailyClosing(
   sales: Sale[],
   payments: Payment[],
   date = todayKey(),
+  forceReport = false,
 ): DailyClosing | undefined {
   const daySales = sales.filter((sale) => dayKeyFromIso(sale.createdAt) === date && !sale.deleted);
   const dayPayments = payments.filter((payment) => dayKeyFromIso(payment.createdAt) === date);
   const touchedToday = sales.some((sale) => dayKeyFromIso(sale.createdAt) === date) || dayPayments.length > 0;
 
-  if (!touchedToday) return undefined;
+  if (!touchedToday && !forceReport) return undefined;
 
   const totals = calculateDayTotals(daySales, dayPayments);
 
@@ -189,13 +191,14 @@ function queueReportPayload(payload: DailyReportPayload) {
   return payload;
 }
 
-export function queueLiveDailyReport(sales: Sale[], payments: Payment[], date = todayKey()) {
-  const closing = buildLiveDailyClosing(sales, payments, date);
+export function queueLiveDailyReport(sales: Sale[], payments: Payment[], customers: Customer[] = [], date = todayKey()) {
+  const closing = buildLiveDailyClosing(sales, payments, date, customers.length > 0);
   if (!closing) return undefined;
   const payload: DailyReportPayload = {
     ...buildDailyReportPayload(closing),
     sales: sales.filter((sale) => dayKeyFromIso(sale.createdAt) === date),
     payments: payments.filter((payment) => dayKeyFromIso(payment.createdAt) === date),
+    customers,
   };
   return queueReportPayload(payload);
 }
