@@ -102,6 +102,42 @@ export function calculateSalePayment(
   };
 }
 
+export function recalculateExistingSalePayment(
+  sale: Sale,
+  paymentType: PaymentType,
+  reason: string,
+  enteredCash?: number,
+): Sale {
+  const cashReceived =
+    paymentType === "cash"
+      ? sale.totalAmount
+      : paymentType === "partial"
+        ? roundMoney(enteredCash ?? 0)
+        : 0;
+  const cliqReceived = paymentType === "cliq" ? sale.totalAmount : 0;
+
+  if (!isValidNumber(cashReceived)) {
+    throw new Error("Cash received must be a valid number.");
+  }
+
+  if (cashReceived < 0) {
+    throw new Error("Cash received cannot be negative.");
+  }
+
+  if (cashReceived + cliqReceived > sale.totalAmount) {
+    throw new Error("Collected amount cannot exceed sale total.");
+  }
+
+  return {
+    ...sale,
+    paymentType,
+    cashReceived,
+    cliqReceived,
+    debtAdded: roundMoney(sale.totalAmount - cashReceived - cliqReceived),
+    editReason: reason.trim(),
+  };
+}
+
 export type ClosingInput = {
   pool1OpeningMeter: number;
   pool1ClosingMeter: number;

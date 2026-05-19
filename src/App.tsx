@@ -11,6 +11,7 @@ import {
   History,
   Lock,
   Plus,
+  RotateCcw,
   Search,
   Settings,
   Trash2,
@@ -41,6 +42,7 @@ import {
   getDayPayments,
   makeCustomerName,
   normalizeTruckNumber,
+  recalculateExistingSalePayment,
   roundMoney,
   todayKey,
 } from "./lib/business";
@@ -1746,6 +1748,12 @@ function SalesHistory({
     `${sale.customerName} ${sale.truckNumber} ${sale.paymentType}`.includes(filter),
   );
 
+  const applyDebtDelta = (customers: Customer[], customerId: string, delta: number) => {
+    if (delta > 0) return applyCustomerDebt(customers, customerId, delta, "sale");
+    if (delta < 0) return applyCustomerDebt(customers, customerId, Math.abs(delta), "payment");
+    return customers;
+  };
+
   const deleteSale = (saleId: string) => {
     const sale = sales.find((item) => item.id === saleId);
     if (!sale) return;
@@ -1753,17 +1761,39 @@ function SalesHistory({
       window.alert("هذا اليوم مغلق. لا يمكن حذف بيع بعد الإغلاق حتى لا تتغير الأرقام بصمت.");
       return;
     }
-    const reason = window.prompt("سبب حذف البيع؟");
+    const reason = window.prompt("سبب حذف البيع؟ مثال: تم إدخال الطلب بالغلط");
     if (!reason) return;
+    if (!window.confirm("تأكيد حذف هذا البيع من أرقام اليوم؟")) return;
     setData((current) => ({
       ...current,
-      customers: sale.debtAdded > 0
-        ? applyCustomerDebt(current.customers, sale.customerId, sale.debtAdded, "payment")
-        : current.customers,
+      customers: applyDebtDelta(current.customers, sale.customerId, -sale.debtAdded),
       sales: current.sales.map((item) =>
         item.id === saleId ? { ...item, deleted: true, editReason: reason } : item,
       ),
     }));
+  };
+
+  const correctSalePayment = (saleId: string, nextPaymentType: PaymentType) => {
+    const sale = sales.find((item) => item.id === saleId);
+    if (!sale || sale.deleted) return;
+    if (closings.some((closing) => closing.date === dayKeyFromIso(sale.createdAt))) {
+      window.alert("هذا اليوم مغلق. لا يمكن تعديل بيع بعد الإغلاق حتى لا تتغير الأرقام بصمت.");
+      return;
+    }
+    const reason = window.prompt(`سبب تعديل الدفع إلى ${arabicPayment(nextPaymentType)}؟`, "تصحيح طريقة الدفع");
+    if (!reason) return;
+    const partialCash = nextPaymentType === "partial" ? Number(window.prompt("كم قبض كاش؟", String(sale.cashReceived || 0)) || 0) : undefined;
+    try {
+      const corrected = recalculateExistingSalePayment(sale, nextPaymentType, reason, partialCash);
+      const debtDelta = corrected.debtAdded - sale.debtAdded;
+      setData((current) => ({
+        ...current,
+        customers: applyDebtDelta(current.customers, sale.customerId, debtDelta),
+        sales: current.sales.map((item) => (item.id === saleId ? corrected : item)),
+      }));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "تعذر تعديل طريقة الدفع");
+    }
   };
 
   return (
@@ -1771,7 +1801,7 @@ function SalesHistory({
       <div className="section-heading spread">
         <div>
           <h2>سجل المبيعات</h2>
-          <p>البحث بالعميل أو التنك أو طريقة الدفع. الحذف يحتاج دخول المدير.</p>
+          <p>البحث بالعميل أو التنك أو طريقة الدفع. الموظف يستطيع تصحيح طريقة الدفع أو حذف عملية غلط مع تسجيل السبب.</p>
         </div>
         <input
           className="small-search"
@@ -1807,12 +1837,32 @@ function SalesHistory({
                 <td>{formatJod(sale.cliqReceived ?? 0)}</td>
                 <td>{formatJod(sale.debtAdded)}</td>
                 <td>
-                  {!sale.deleted && managerMode && (
-                    <button className="icon-button danger-text" onClick={() => deleteSale(sale.id)}>
-                      <Trash2 size={18} />
-                    </button>
+                  {!sale.deleted ? (
+                    <div className="history-actions">
+                      {sale.paymentType !== "debt" && (
+                        <button className="icon-button correction-button" onClick={() => correctSalePayment(sale.id, "debt")} title="تصحيح إلى دين">
+                          <RotateCcw size={18} />
+                          كاش→دين
+                        </button>
+                      )}
+                      {sale.paymentType !== "cash" && (
+                        <button className="icon-button correction-button" onClick={() => correctSalePayment(sale.id, "cash")} title="تصحيح إلى كاش">
+                          كاش
+                        </button>
+                      )}
+                      {sale.paymentType !== "cliq" && (
+                        <button className="icon-button correction-button" onClick={() => correctSalePayment(sale.id, "cliq")} title="تصحيح إلى CliQ">
+                          CliQ
+                        </button>
+                      )}
+                      <button className="icon-button danger-text" onClick={() => deleteSale(sale.id)} title="حذف البيع">
+                        <Trash2 size={18} />
+                        حذف
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="muted-text">محذوف: {sale.editReason || "بدون سبب"}</span>
                   )}
-                  {!sale.deleted && !managerMode && <span className="muted-text">عرض فقط</span>}
                 </td>
               </tr>
             ))}

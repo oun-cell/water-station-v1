@@ -1170,6 +1170,31 @@ tr.deleted {
   place-items: center;
 }
 
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 240px;
+}
+
+.history-actions .icon-button {
+  width: auto;
+  min-height: 40px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.correction-button {
+  color: #075985;
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
 .danger-text {
   color: #b91c1c;
 }

@@ -8,6 +8,7 @@ import {
   findRecentDuplicateTruck,
   makeCustomerName,
   normalizeTruckNumber,
+  recalculateExistingSalePayment,
 } from "./business";
 
 describe("water station business rules", () => {
@@ -85,6 +86,34 @@ describe("water station business rules", () => {
       cliqReceived: 11,
       debtAdded: 0,
     });
+  });
+
+  it("recalculates an existing sale when employee corrects cash to debt", () => {
+    const corrected = recalculateExistingSalePayment(
+      {
+        id: "s1",
+        createdAt: "2026-05-12T09:00:00.000Z",
+        customerId: "c1",
+        customerName: "أحمد",
+        truckNumber: "1234",
+        meters: 12,
+        pricePerMeter: 1,
+        totalAmount: 12,
+        paymentType: "cash",
+        cashReceived: 12,
+        cliqReceived: 0,
+        debtAdded: 0,
+        notes: "",
+      },
+      "debt",
+      "الموظف اختار كاش بالغلط",
+    );
+
+    expect(corrected.paymentType).toBe("debt");
+    expect(corrected.cashReceived).toBe(0);
+    expect(corrected.cliqReceived).toBe(0);
+    expect(corrected.debtAdded).toBe(12);
+    expect(corrected.editReason).toContain("الموظف اختار كاش بالغلط");
   });
 
   it("falls back to standard 1 JOD per meter when loyal size is not listed", () => {
