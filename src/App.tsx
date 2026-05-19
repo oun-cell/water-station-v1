@@ -25,7 +25,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getReportWebhookUrl,
   getSyncState,
-  queueDailyReport,
+  queueLiveDailyReport,
   saveReportWebhookUrl,
   syncPendingReports,
 } from "./reportSync";
@@ -213,6 +213,26 @@ function App() {
     window.addEventListener("online", runSync);
     return () => window.removeEventListener("online", runSync);
   }, []);
+
+  useEffect(() => {
+    if (!getReportWebhookUrl()) {
+      setSyncState(getSyncState());
+      return;
+    }
+
+    const syncTimer = window.setTimeout(() => {
+      const queued = queueLiveDailyReport(data.sales, data.payments);
+      if (!queued) {
+        setSyncState(getSyncState());
+        return;
+      }
+
+      setSyncState(getSyncState());
+      syncPendingReports().then(setSyncState).catch(() => setSyncState(getSyncState()));
+    }, 1200);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [data.sales, data.payments]);
 
   const todaySales = useMemo(() => getTodaySales(data.sales), [data.sales]);
   const latestClosing = data.closings.find((closing) => closing.date === todayKey());
@@ -452,14 +472,22 @@ function BackupTools({
           <button
             onClick={() => {
               saveReportWebhookUrl(webhookUrl);
+              const queued = queueLiveDailyReport(data.sales, data.payments);
               onSyncStateChange();
-              setStatus("تم حفظ رابط المزامنة");
+              if (queued) {
+                syncPendingReports().then(() => onSyncStateChange());
+                setStatus("تم حفظ الرابط وإرسال بيانات اليوم");
+              } else {
+                setStatus("تم حفظ رابط المزامنة");
+              }
             }}
           >
             حفظ رابط المزامنة
           </button>
           <button
             onClick={() => {
+              queueLiveDailyReport(data.sales, data.payments);
+              onSyncStateChange();
               syncPendingReports().then(() => {
                 onSyncStateChange();
                 setStatus("تمت محاولة المزامنة");

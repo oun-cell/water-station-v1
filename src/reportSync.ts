@@ -1,4 +1,5 @@
-import type { DailyClosing } from "./types";
+import { calculateDayTotals, dayKeyFromIso, todayKey } from "./lib/business";
+import type { DailyClosing, Payment, Sale } from "./types";
 
 const WEBHOOK_KEY = "water-station-report-webhook-url";
 const PENDING_KEY = "water-station-pending-reports-v1";
@@ -136,6 +137,53 @@ export function buildDailyReportPayload(closing: DailyClosing): DailyReportPaylo
     pool2ActualMeters: closing.pool2ActualMeters,
     notes: closing.notes,
   };
+}
+
+export function buildLiveDailyClosing(
+  sales: Sale[],
+  payments: Payment[],
+  date = todayKey(),
+): DailyClosing | undefined {
+  const daySales = sales.filter((sale) => dayKeyFromIso(sale.createdAt) === date && !sale.deleted);
+  const dayPayments = payments.filter((payment) => dayKeyFromIso(payment.createdAt) === date);
+  const touchedToday = sales.some((sale) => dayKeyFromIso(sale.createdAt) === date) || dayPayments.length > 0;
+
+  if (!touchedToday) return undefined;
+
+  const totals = calculateDayTotals(daySales, dayPayments);
+
+  return {
+    id: `live-${date}`,
+    date,
+    pool1OpeningMeter: 0,
+    pool1ClosingMeter: totals.recordedMeters,
+    pool2OpeningMeter: 0,
+    pool2ClosingMeter: 0,
+    pool1ActualMeters: totals.recordedMeters,
+    pool2ActualMeters: 0,
+    actualMeters: totals.recordedMeters,
+    recordedMeters: totals.recordedMeters,
+    missingMeters: 0,
+    missingValue: 0,
+    expectedCash: totals.expectedCash,
+    cashCounted: totals.expectedCash,
+    cashDifference: 0,
+    saleCash: totals.saleCash,
+    saleCliq: totals.saleCliq,
+    debtCollected: totals.debtCollected,
+    debtCashCollected: totals.debtCashCollected,
+    debtCliqCollected: totals.debtCliqCollected,
+    salesRevenue: totals.salesRevenue,
+    debtAdded: totals.debtAdded,
+    tankCount: totals.tankCount,
+    notes: "تقرير تلقائي مباشر من التطبيق",
+  };
+}
+
+export function queueLiveDailyReport(sales: Sale[], payments: Payment[], date = todayKey()) {
+  const closing = buildLiveDailyClosing(sales, payments, date);
+  if (!closing) return undefined;
+  return queueDailyReport(closing);
 }
 
 export function queueDailyReport(closing: DailyClosing) {
