@@ -37,6 +37,8 @@ export type DailyReportPayload = {
   pool2ClosingMeter: number;
   pool2ActualMeters: number;
   notes: string;
+  sales?: Sale[];
+  payments?: Payment[];
 };
 
 export type SyncState = {
@@ -180,18 +182,26 @@ export function buildLiveDailyClosing(
   };
 }
 
-export function queueLiveDailyReport(sales: Sale[], payments: Payment[], date = todayKey()) {
-  const closing = buildLiveDailyClosing(sales, payments, date);
-  if (!closing) return undefined;
-  return queueDailyReport(closing);
-}
-
-export function queueDailyReport(closing: DailyClosing) {
-  const payload = buildDailyReportPayload(closing);
+function queueReportPayload(payload: DailyReportPayload) {
   const pending = getPendingReports().filter((report) => report.reportId !== payload.reportId && report.date !== payload.date);
   savePendingReports([...pending, payload]);
   writeSyncState({ status: getReportWebhookUrl() ? "pending" : "not-configured", pendingCount: pending.length + 1, lastError: "" });
   return payload;
+}
+
+export function queueLiveDailyReport(sales: Sale[], payments: Payment[], date = todayKey()) {
+  const closing = buildLiveDailyClosing(sales, payments, date);
+  if (!closing) return undefined;
+  const payload: DailyReportPayload = {
+    ...buildDailyReportPayload(closing),
+    sales: sales.filter((sale) => dayKeyFromIso(sale.createdAt) === date),
+    payments: payments.filter((payment) => dayKeyFromIso(payment.createdAt) === date),
+  };
+  return queueReportPayload(payload);
+}
+
+export function queueDailyReport(closing: DailyClosing) {
+  return queueReportPayload(buildDailyReportPayload(closing));
 }
 
 export async function syncPendingReports() {

@@ -55,11 +55,11 @@ type View = "sale" | "dashboard" | "closing" | "debts" | "history" | "report";
 
 const navItems: Array<{ view: View; label: string; icon: typeof Plus; manager?: boolean }> = [
   { view: "sale", label: "بيع جديد", icon: Plus },
-  { view: "dashboard", label: "لوحة اليوم", icon: BarChart3, manager: true },
+  { view: "dashboard", label: "لوحة اليوم", icon: BarChart3 },
   { view: "closing", label: "ملخص اليوم", icon: Gauge },
   { view: "debts", label: "ديون العملاء", icon: Users },
   { view: "history", label: "سجل المبيعات", icon: History },
-  { view: "report", label: "التقرير", icon: FileText, manager: true },
+  { view: "report", label: "التقرير", icon: FileText },
 ];
 
 const quickMeters = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22];
@@ -205,37 +205,27 @@ function App() {
 
   const refreshSyncState = () => setSyncState(getSyncState());
 
-  useEffect(() => {
-    const runSync = () => {
-      syncPendingReports().then(setSyncState).catch(() => setSyncState(getSyncState()));
-    };
-    runSync();
-    window.addEventListener("online", runSync);
-    return () => window.removeEventListener("online", runSync);
-  }, []);
-
-  useEffect(() => {
-    if (!getReportWebhookUrl()) {
-      setSyncState(getSyncState());
-      return;
-    }
-
-    const syncTimer = window.setTimeout(() => {
-      const queued = queueLiveDailyReport(data.sales, data.payments);
-      if (!queued) {
-        setSyncState(getSyncState());
-        return;
-      }
-
-      setSyncState(getSyncState());
-      syncPendingReports().then(setSyncState).catch(() => setSyncState(getSyncState()));
-    }, 1200);
-
-    return () => window.clearTimeout(syncTimer);
-  }, [data.sales, data.payments]);
-
   const todaySales = useMemo(() => getTodaySales(data.sales), [data.sales]);
   const latestClosing = data.closings.find((closing) => closing.date === todayKey());
+
+  const syncLatestData = () => {
+    if (getReportWebhookUrl()) queueLiveDailyReport(data.sales, data.payments);
+    return syncPendingReports().then(setSyncState).catch(() => setSyncState(getSyncState()));
+  };
+
+  useEffect(() => {
+    syncLatestData();
+    const intervalId = window.setInterval(syncLatestData, 30000);
+    window.addEventListener("online", syncLatestData);
+    window.addEventListener("focus", syncLatestData);
+    document.addEventListener("visibilitychange", syncLatestData);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("online", syncLatestData);
+      window.removeEventListener("focus", syncLatestData);
+      document.removeEventListener("visibilitychange", syncLatestData);
+    };
+  }, [data.sales, data.payments]);
 
   const openView = (next: View) => {
     const item = navItems.find((nav) => nav.view === next);
@@ -343,7 +333,7 @@ function App() {
         </header>
 
         {view === "sale" && <SaleScreen data={data} setData={setData} />}
-        {view === "dashboard" && managerMode && (
+        {view === "dashboard" && (
           <Dashboard customers={data.customers} todaySales={todaySales} />
         )}
         {view === "closing" && (
@@ -360,7 +350,7 @@ function App() {
         {view === "history" && (
           <SalesHistory sales={data.sales} closings={data.closings} managerMode={managerMode} setData={setData} />
         )}
-        {view === "report" && managerMode && (
+        {view === "report" && (
           <ManagerReport
             sales={todaySales}
             customers={data.customers}
