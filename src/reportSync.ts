@@ -2,6 +2,7 @@ import { calculateDayTotals, dayKeyFromIso, todayKey } from "./lib/business";
 import type { Customer, DailyClosing, Payment, Sale } from "./types";
 
 const WEBHOOK_KEY = "water-station-report-webhook-url";
+const DEFAULT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxWv7mUPcGQ2Js6TwSs_g0vrA0_dEQfww5W50oRrtQxv2n9wqMKHeWsiN-TTtXoChf1wQ/exec";
 const PENDING_KEY = "water-station-pending-reports-v1";
 const LAST_SYNC_KEY = "water-station-last-sync-state-v1";
 const STATION_ID_KEY = "water-station-device-id";
@@ -78,8 +79,8 @@ export function getStationId() {
 }
 
 export function getReportWebhookUrl() {
-  if (!canUseStorage()) return "";
-  return window.localStorage.getItem(WEBHOOK_KEY) ?? "";
+  if (!canUseStorage()) return DEFAULT_WEBHOOK_URL;
+  return window.localStorage.getItem(WEBHOOK_KEY) || DEFAULT_WEBHOOK_URL;
 }
 
 export function saveReportWebhookUrl(url: string) {

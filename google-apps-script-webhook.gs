@@ -75,6 +75,16 @@ const PAYMENT_DETAIL_HEADERS = [
   'Notes'
 ];
 
+function doGet() {
+  // Opening the web app in a browser uses GET. Touch the spreadsheet here so
+  // Google shows the one-time authorization prompt before tablets start POSTing.
+  getSheet_(SHEET_NAME);
+  getSheet_(CUSTOMER_SHEET_NAME);
+  getSheet_(SALE_DETAIL_SHEET_NAME);
+  getSheet_(PAYMENT_DETAIL_SHEET_NAME);
+  return jsonResponse({ ok: true, service: 'water-station-sync', message: 'Webhook is ready. POST payload to sync reports.' });
+}
+
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
